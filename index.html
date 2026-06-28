@@ -1,0 +1,3267 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>300單字全能終極冒險王 🌟 All-in-One English Game</title>
+    <!-- 引入 Tailwind CSS 提供極佳的視覺設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- 引入 Google Fonts 提供可愛活潑的字體 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Noto+Sans+TC:wght@300..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Fredoka', 'Noto Sans TC', sans-serif;
+        }
+        .perspective {
+            perspective: 1000px;
+        }
+        .rotate-y-180 {
+            transform: rotateY(180deg);
+        }
+        .backface-hidden {
+            backface-visibility: hidden;
+        }
+        .transform-style-3d {
+            transform-style: preserve-3d;
+        }
+        /* 可愛軟萌感按鈕陰影與微動效 */
+        .btn-bounce {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-bounce:active {
+            transform: scale(0.92);
+        }
+        /* 發音能量跳動動畫 */
+        @keyframes pulse-mic {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            50% { transform: scale(1.08); box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+        }
+        .pulse-mic-active {
+            animation: pulse-mic 1.5s infinite;
+        }
+        .cal-day { aspect-ratio: 1; }
+        .cal-day.marked::after {
+            content: '✓';
+            position: absolute;
+            bottom: 2px;
+            right: 4px;
+            font-size: 10px;
+            color: #34d399;
+            font-weight: bold;
+        }
+        .cal-day.marked {
+            background: linear-gradient(135deg, rgba(16,185,129,0.25), rgba(99,102,241,0.2));
+            border-color: rgba(52,211,153,0.5);
+        }
+        @keyframes fade-in {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in { animation: fade-in 0.4s ease-out; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 min-h-screen text-slate-100 pb-12">
+
+    <!-- 登入畫面 -->
+    <div id="login-screen" class="min-h-screen flex items-center justify-center px-4 py-12">
+        <div class="w-full max-w-md bg-slate-900/90 backdrop-blur-md border border-indigo-500/20 rounded-3xl p-8 shadow-2xl space-y-6 animate-fade-in">
+            <div class="text-center space-y-2">
+                <span class="text-5xl">🏆</span>
+                <h1 class="text-2xl font-black bg-gradient-to-r from-amber-400 to-indigo-400 bg-clip-text text-transparent">300單字全能終極冒險王</h1>
+                <p class="text-slate-400 text-sm">請選擇身分登入系統</p>
+            </div>
+            <div class="flex rounded-2xl bg-slate-800/60 p-1 border border-slate-700">
+                <button id="login-tab-student" onclick="switchLoginTab('student')" class="flex-1 py-2.5 rounded-xl text-sm font-bold transition bg-indigo-600 text-white">🧑‍🎓 學生登入</button>
+                <button id="login-tab-teacher" onclick="switchLoginTab('teacher')" class="flex-1 py-2.5 rounded-xl text-sm font-bold transition text-slate-400 hover:text-slate-200">🧑‍🏫 老師登入</button>
+            </div>
+            <div id="login-error" class="hidden text-rose-400 text-sm text-center bg-rose-950/30 border border-rose-900/40 px-3 py-2 rounded-xl"></div>
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs text-slate-400 font-bold mb-1.5 block" id="login-id-label">姓名</label>
+                    <input id="login-id" type="text" placeholder="請輸入英文姓名" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-slate-100 focus:outline-none focus:border-indigo-500 transition" autocomplete="username">
+                </div>
+                <div>
+                    <label class="text-xs text-slate-400 font-bold mb-1.5 block">密碼</label>
+                    <div class="relative">
+                        <input id="login-password" type="password" placeholder="請輸入密碼" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 pr-12 text-slate-100 focus:outline-none focus:border-indigo-500 transition" autocomplete="current-password" onkeydown="if(event.key==='Enter')attemptLogin()">
+                        <button type="button" onclick="togglePwdVisibility('login-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-lg leading-none transition btn-bounce" title="顯示/隱藏密碼">👁️</button>
+                    </div>
+                </div>
+                <button onclick="attemptLogin()" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white py-3.5 rounded-2xl font-bold shadow-lg transition btn-bounce">登入 🚀</button>
+            </div>
+            <p class="text-center text-xs text-slate-500" id="login-hint">請輸入英文姓名登入，大小寫不拘（如 Jim、Sherry）</p>
+            <p id="cloud-ready-hint" class="hidden text-center text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 px-3 py-2 rounded-xl">☁️ 班級雲端已連線，可跨裝置同步</p>
+            <details class="text-left">
+                <summary class="text-[10px] text-slate-500 cursor-pointer text-center">學生：貼上班級同步碼（無法用連結時）</summary>
+                <div class="flex gap-2 mt-2">
+                    <input id="manual-sync-code" placeholder="貼上老師給的同步碼" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300">
+                    <button onclick="applyManualSyncCode()" class="shrink-0 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold transition">套用</button>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    <!-- 老師首次建立班級雲端後的分享視窗 -->
+    <div id="class-share-modal" class="fixed inset-0 z-[70] bg-slate-950/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-indigo-500/30 rounded-3xl p-6 md:p-8 max-w-lg w-full space-y-4 shadow-2xl">
+            <div class="text-center">
+                <span class="text-4xl">☁️</span>
+                <h2 class="text-xl font-black text-slate-100 mt-2">班級雲端已建立！</h2>
+                <p class="text-sm text-slate-400 mt-1">請將下方連結或同步碼傳給學生，學生用此連結開啟即可跨裝置同步（只需做一次）</p>
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs text-slate-500 font-bold">班級專屬連結（建議）</label>
+                <div class="flex gap-2">
+                    <input id="class-share-url" readonly class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-indigo-300 font-mono">
+                    <button onclick="copyClassShareUrl()" class="shrink-0 bg-indigo-600 hover:bg-indigo-500 px-3 py-2 rounded-xl text-xs font-bold text-white transition">複製</button>
+                </div>
+            </div>
+            <div class="space-y-2">
+                <label class="text-xs text-slate-500 font-bold">班級同步碼（備用）</label>
+                <div class="flex gap-2">
+                    <input id="class-share-code" readonly class="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs text-emerald-300 font-mono text-[10px]">
+                    <button onclick="copyClassShareCode()" class="shrink-0 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold transition">複製</button>
+                </div>
+            </div>
+            <button onclick="closeClassShareModal()" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-2xl font-bold transition btn-bounce">我知道了，開始使用</button>
+        </div>
+    </div>
+
+    <!-- 雲端同步載入中 -->
+    <div id="cloud-loading" class="fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm hidden flex flex-col items-center justify-center">
+        <div class="text-4xl animate-bounce mb-4">☁️</div>
+        <p class="text-slate-200 font-bold">正在同步雲端資料...</p>
+    </div>
+
+    <!-- 主應用（登入後顯示） -->
+    <div id="app-wrapper" class="hidden">
+
+    <!-- 導覽列 -->
+    <header class="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-indigo-900/60 shadow-lg transition-all">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2 cursor-pointer" onclick="goHome()">
+                <span class="text-3xl">🏆</span>
+                <span class="text-lg md:text-xl font-bold bg-gradient-to-r from-amber-400 via-orange-400 to-indigo-400 bg-clip-text text-transparent">300單字全能終極冒險王</span>
+            </div>
+            
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <span id="sync-status" class="hidden text-[10px] md:text-xs px-2 py-1 rounded-full font-bold border"></span>
+                <span id="user-badge" class="hidden text-xs bg-indigo-950/80 border border-indigo-800 text-indigo-300 px-2.5 py-1 rounded-full font-bold truncate max-w-[100px] md:max-w-none"></span>
+                <div id="student-nav" class="hidden flex items-center space-x-1 md:space-x-2">
+                    <button onclick="showScreen('notebook-screen')" class="text-xs md:text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 md:px-3 py-1.5 rounded-full font-bold transition btn-bounce">📓 記事本</button>
+                    <button onclick="showScreen('calendar-screen')" class="text-xs md:text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 md:px-3 py-1.5 rounded-full font-bold transition btn-bounce">📅 打卡</button>
+                </div>
+                <div id="teacher-nav" class="hidden flex items-center flex-wrap gap-1 md:gap-2">
+                    <button onclick="showScreen('teacher-dashboard-screen')" class="text-xs md:text-sm bg-emerald-900/60 hover:bg-emerald-800/60 border border-emerald-700/50 text-emerald-300 px-2 md:px-3 py-1.5 rounded-full font-bold transition btn-bounce">📊 學生後台</button>
+                    <button onclick="enterTeacherLearning()" class="text-xs md:text-sm bg-indigo-900/60 hover:bg-indigo-800/60 border border-indigo-700/50 text-indigo-300 px-2 md:px-3 py-1.5 rounded-full font-bold transition btn-bounce">🎮 學習內容</button>
+                    <button onclick="showScreen('notebook-screen')" class="text-xs md:text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 md:px-3 py-1.5 rounded-full font-bold transition btn-bounce">📓 記事本</button>
+                    <button onclick="showScreen('calendar-screen')" class="text-xs md:text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 md:px-3 py-1.5 rounded-full font-bold transition btn-bounce">📅 打卡</button>
+                </div>
+                <!-- 總星星積分 -->
+                <div id="stars-badge" class="flex items-center bg-amber-950/80 border border-amber-500/30 text-amber-300 px-3 py-1.5 rounded-full font-bold shadow-md text-sm">
+                    <span class="mr-1">⭐</span>
+                    <span id="global-stars">0</span>
+                </div>
+                <button onclick="logout()" class="text-xs bg-slate-800 hover:bg-rose-950 border border-slate-700 hover:border-rose-800 text-slate-400 hover:text-rose-300 px-2.5 py-1.5 rounded-full font-bold transition btn-bounce" title="登出">登出</button>
+                <!-- 靜音切換 -->
+                <button id="mute-btn" onclick="toggleMute()" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 transition btn-bounce">
+                    🔊
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-5xl mx-auto px-4 mt-6">
+        
+        <!-- 主選單畫面 -->
+        <div id="menu-screen" class="screen space-y-8 animate-fade-in">
+            <div id="teacher-preview-banner" class="hidden bg-amber-950/40 border border-amber-500/30 text-amber-200 text-sm px-4 py-3 rounded-2xl text-center">
+                🧑‍🏫 <b>老師預覽模式</b>：可完整體驗學生學習內容與操作，不會寫入學生學習紀錄
+            </div>
+            <!-- 歡迎看板 -->
+            <div class="bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-2xl border border-indigo-500/20 relative overflow-hidden">
+                <div class="relative z-10 max-w-2xl">
+                    <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">301 個生活必備英文單字全收錄</span>
+                    <h1 class="text-3xl md:text-4xl font-extrabold mb-3 mt-2">英文全能發音大冒險！🎙️</h1>
+                    <p class="text-indigo-200 text-sm md:text-base mb-4 leading-relaxed">
+                        本系統完美整合「動物、數字、食物、時間、動詞、形容詞、介係詞與疑問句」等 11 大核心生活領域。支援<b>五大模式</b>（字卡、去圖示連連看、拼字、聽力、以及全新的<b>麥克風口說發音辨識評測</b>）！
+                    </p>
+                    <div class="flex flex-wrap gap-3">
+                        <button onclick="quickStart()" class="bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 px-6 py-3 rounded-2xl font-bold shadow-lg shadow-amber-500/20 hover:from-amber-300 hover:to-orange-400 transition btn-bounce">
+                            快速開始冒險 🚀
+                        </button>
+                        <a href="#category-selector" class="bg-slate-800 hover:bg-slate-700 text-white px-5 py-3 rounded-2xl font-bold transition border border-slate-700 flex items-center justify-center">
+                            瀏覽 11 大主題 📂
+                        </a>
+                    </div>
+                </div>
+                <!-- 背景裝飾 -->
+                <span class="absolute right-4 bottom-[-20px] text-9xl opacity-5 pointer-events-none select-none">🗣️</span>
+            </div>
+
+            <!-- 主題選擇分流區 -->
+            <div id="category-selector" class="space-y-4">
+                <h2 class="text-xl font-bold text-indigo-300 flex items-center">
+                    <span class="mr-2">📂</span> 選擇學習主題範疇 (11 大領域)
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3" id="category-grid">
+                    <!-- 動態由 JavaScript 生成主題按鈕 -->
+                </div>
+            </div>
+
+            <!-- 當前所選主題面板 -->
+            <div id="active-panel" class="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 p-6 rounded-3xl shadow-inner space-y-6 hidden">
+                <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-700/50 pb-4 gap-4">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-4xl" id="active-cat-emoji">🔢</span>
+                        <div>
+                            <h3 class="text-2xl font-black text-slate-100" id="active-cat-name">數字範疇</h3>
+                            <p class="text-xs text-indigo-200/50" id="active-cat-desc">基礎 0 到 100 等實用單字。</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-2 text-xs bg-slate-900/60 p-2 rounded-xl border border-slate-750">
+                        <span class="text-slate-400">當前範疇總星數:</span>
+                        <span class="text-amber-400 font-bold" id="active-cat-stars">⭐ 0</span>
+                    </div>
+                </div>
+
+                <!-- 選擇當前範疇的挑戰模式 -->
+                <div class="space-y-3">
+                    <h4 class="text-sm font-bold text-indigo-300">🎯 選擇該範疇的挑戰模式：</h4>
+                    <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                        <button onclick="startMode('flashcards')" class="p-4 bg-slate-800 border border-slate-700 rounded-2xl hover:border-indigo-500 transition btn-bounce text-left space-y-2">
+                            <span class="text-2xl block">📚</span>
+                            <span class="block font-bold text-sm text-slate-200">單字學習卡</span>
+                        </button>
+                        <button onclick="startMode('matching')" class="p-4 bg-slate-800 border border-slate-700 rounded-2xl hover:border-purple-500 transition btn-bounce text-left space-y-2">
+                            <span class="text-2xl block">🔗</span>
+                            <span class="block font-bold text-sm text-slate-200">去圖示連連看</span>
+                        </button>
+                        <button onclick="startMode('spelling')" class="p-4 bg-slate-800 border border-slate-700 rounded-2xl hover:border-amber-500 transition btn-bounce text-left space-y-2">
+                            <span class="text-2xl block">✏️</span>
+                            <span class="block font-bold text-sm text-slate-200">拼字大挑戰</span>
+                        </button>
+                        <button onclick="startMode('listening')" class="p-4 bg-slate-800 border border-slate-700 rounded-2xl hover:border-emerald-500 transition btn-bounce text-left space-y-2">
+                            <span class="text-2xl block">🎧</span>
+                            <span class="block font-bold text-sm text-slate-200">聽力大考驗</span>
+                        </button>
+                        <button onclick="startMode('speaking')" class="p-4 bg-gradient-to-tr from-rose-950 to-indigo-950 border border-rose-500/30 rounded-2xl hover:border-rose-500 transition btn-bounce text-left space-y-2">
+                            <span class="text-2xl block">🎙️</span>
+                            <span class="block font-bold text-sm text-rose-300">口說發音特訓</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 當前主題的單字進度牆 -->
+                <div class="space-y-3 pt-2">
+                    <h4 class="text-sm font-bold text-indigo-300">📁 單字記憶度一覽表 (點選發音)：</h4>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2.5" id="active-progress-grid">
+                        <!-- 動態渲染單字進度 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 全能 300 單字進度牆統計 -->
+            <div class="bg-slate-800/20 border border-slate-700/30 p-6 rounded-3xl space-y-4">
+                <div class="flex items-center justify-between">
+                    <h2 class="text-lg font-bold text-indigo-300 flex items-center">
+                        <span class="mr-2">📊</span> 全能單字特工解鎖進度
+                    </h2>
+                    <span class="text-xs bg-indigo-950/80 text-indigo-400 border border-indigo-900 px-3 py-1 rounded-full" id="unlocked-overall-percent">已解鎖: 0%</span>
+                </div>
+                <div class="w-full bg-slate-800 h-3 rounded-full overflow-hidden">
+                    <div class="bg-gradient-to-r from-emerald-500 to-indigo-500 h-full w-0 transition-all duration-500" id="overall-progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模式一：單字學習卡畫面 -->
+        <div id="flashcard-screen" class="screen hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <button onclick="showScreen('menu-screen')" class="flex items-center text-slate-400 hover:text-slate-200 font-bold transition">
+                    <span class="mr-1">⬅</span> 返回選單
+                </button>
+                <span class="text-sm font-semibold text-slate-300 bg-slate-800/80 border border-slate-700/50 px-3 py-1 rounded-full shadow-md" id="card-progress-label">
+                    單字卡 1/30
+                </span>
+            </div>
+
+            <!-- 主要翻牌卡片 -->
+            <div class="max-w-md mx-auto perspective h-96 cursor-pointer" id="flashcard" onclick="flipCard()">
+                <div class="relative w-full h-full transition-transform duration-500 transform-style-3d shadow-2xl rounded-3xl" id="flashcard-inner">
+                    <!-- 正面 -->
+                    <div class="absolute inset-0 w-full h-full bg-gradient-to-tr from-indigo-900 via-purple-950 to-indigo-950 border border-indigo-500/20 rounded-3xl backface-hidden flex flex-col items-center justify-between p-8 text-white">
+                        <div class="text-xs tracking-widest bg-white/10 px-3 py-1 rounded-full text-indigo-300 uppercase" id="card-front-cat-name">分類</div>
+                        <div class="flex flex-col items-center space-y-3">
+                            <span id="card-front-emoji" class="text-7xl font-bold select-none bg-white/5 w-24 h-24 rounded-full flex items-center justify-center border border-white/10 filter drop-shadow">🌟</span>
+                            <span id="card-front-en" class="text-4xl font-extrabold tracking-wide lowercase text-center text-amber-300">word</span>
+                        </div>
+                        <div class="text-xs text-white/40 animate-pulse">點擊卡片翻轉看中文</div>
+                    </div>
+                    <!-- 反面 -->
+                    <div class="absolute inset-0 w-full h-full bg-gradient-to-tr from-purple-900 to-indigo-950 border border-purple-500/20 rounded-3xl backface-hidden rotate-y-180 flex flex-col items-center justify-between p-8 text-white">
+                        <div class="text-xs tracking-widest bg-white/10 px-3 py-1 rounded-full text-purple-300 uppercase" id="card-back-cat-name">分類</div>
+                        <div class="flex flex-col items-center space-y-3">
+                            <span id="card-back-emoji" class="text-7xl font-bold select-none bg-white/5 w-24 h-24 rounded-full flex items-center justify-center border border-white/10 filter drop-shadow">🌟</span>
+                            <span id="card-back-zh" class="text-4xl font-black text-center text-indigo-300">中文</span>
+                        </div>
+                        <div class="text-xs text-white/40 animate-pulse">點擊卡片翻轉回英文</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制列 -->
+            <div class="max-w-md mx-auto flex items-center justify-between space-x-3">
+                <button onclick="prevCard()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 py-3 rounded-2xl font-bold shadow transition btn-bounce">
+                    上一個
+                </button>
+                <button onclick="speakCurrentWord()" class="w-16 h-14 bg-indigo-950 hover:bg-indigo-900 border border-indigo-500/30 text-indigo-400 rounded-2xl flex items-center justify-center text-2xl shadow btn-bounce" title="播放發音">
+                    🔊
+                </button>
+                <button onclick="nextCard()" class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white py-3 rounded-2xl font-bold shadow-lg shadow-indigo-500/20 transition btn-bounce">
+                    下一個
+                </button>
+            </div>
+        </div>
+
+        <!-- 模式二：中英連連看畫面 -->
+        <div id="matching-screen" class="screen hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <button onclick="showScreen('menu-screen')" class="flex items-center text-slate-400 hover:text-slate-200 font-bold transition">
+                    <span class="mr-1">⬅</span> 放棄挑戰
+                </button>
+                <div class="flex items-center space-x-3">
+                    <span class="text-sm font-semibold text-rose-400 bg-rose-950/40 border border-rose-900/40 px-3 py-1 rounded-full shadow">
+                        錯誤次數: <span id="matching-errors">0</span>
+                    </span>
+                    <span class="text-sm font-semibold text-indigo-400 bg-indigo-950/40 border border-indigo-900/40 px-3 py-1 rounded-full shadow">
+                        配對進度: <span id="matching-progress">0/8</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="bg-slate-800/50 backdrop-blur-md p-6 rounded-3xl border border-slate-700/50 shadow-2xl max-w-2xl mx-auto">
+                <div class="text-center mb-6">
+                    <h2 class="text-xl font-bold text-slate-100">中英對對碰 (無圖示純字彙版)</h2>
+                    <p class="text-indigo-200/60 text-sm mt-1">配對小寫英文單字與中文翻譯，完成挑戰！</p>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="matching-grid">
+                    <!-- 動態生成連連看卡片 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 模式三：拼字大挑戰畫面 -->
+        <div id="spelling-screen" class="screen hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <button onclick="showScreen('menu-screen')" class="flex items-center text-slate-400 hover:text-slate-200 font-bold transition">
+                    <span class="mr-1">⬅</span> 放棄挑戰
+                </button>
+                <span class="text-sm font-semibold text-amber-400 bg-slate-800/80 border border-slate-700/50 px-3 py-1 rounded-full shadow">
+                    關卡 <span id="spelling-index-num">1</span>/<span id="spelling-total-num">10</span>
+                </span>
+            </div>
+
+            <div class="bg-slate-800/50 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-slate-700/50 shadow-2xl max-w-xl mx-auto space-y-6">
+                
+                <div class="flex flex-col items-center justify-center text-center space-y-3">
+                    <div class="w-24 h-24 bg-amber-950/60 border border-amber-500/20 text-amber-300 rounded-full flex items-center justify-center text-5xl font-extrabold select-none filter drop-shadow animate-bounce" id="spelling-emoji">🌟</div>
+                    <div class="bg-amber-950/40 border border-amber-900/30 text-amber-300 px-4 py-1.5 rounded-full font-bold text-xl" id="spelling-zh">中文</div>
+                    <button onclick="speakSpellingWord()" class="bg-slate-700/50 hover:bg-slate-650 text-slate-300 px-3 py-1.5 border border-slate-650 rounded-full text-xs font-bold transition flex items-center space-x-1 btn-bounce">
+                        <span>🔊 聽發音</span>
+                    </button>
+                </div>
+
+                <!-- 拼字框 (英文字母格) -->
+                <div class="flex justify-center flex-wrap gap-2 py-4 border-y border-dashed border-slate-700 min-h-[80px]" id="spelling-answer-slots">
+                    <!-- 顯示已經拼入的字母 -->
+                </div>
+
+                <!-- 備選字母按鈕區 -->
+                <div>
+                    <p class="text-center text-xs text-indigo-200/40 mb-3 font-semibold">點擊字母按鈕或直接在鍵盤上打字：</p>
+                    <div class="flex flex-wrap justify-center gap-2" id="spelling-letter-pool">
+                        <!-- 動態生成亂序英文字母按鈕 -->
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button onclick="clearSpellingAnswer()" class="flex-1 bg-slate-700/50 hover:bg-slate-750 border border-slate-650 text-slate-200 py-3 rounded-2xl font-bold transition btn-bounce">
+                        清除重來 🔄
+                    </button>
+                    <button onclick="checkSpellingAnswer()" class="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 py-3 rounded-2xl font-bold shadow-lg shadow-amber-500/10 transition btn-bounce">
+                        檢查答案
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 模式四：聽力大考驗畫面 -->
+        <div id="listening-screen" class="screen hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <button onclick="showScreen('menu-screen')" class="flex items-center text-slate-400 hover:text-slate-200 font-bold transition">
+                    <span class="mr-1">⬅</span> 放棄挑戰
+                </button>
+                <span class="text-sm font-semibold text-emerald-400 bg-slate-800/80 border border-slate-700/50 px-3 py-1 rounded-full shadow animate-pulse">
+                    進度 <span id="listening-index-num">1</span>/<span id="listening-total-num">10</span>
+                </span>
+            </div>
+
+            <div class="bg-slate-800/50 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-slate-700/50 shadow-2xl max-w-xl mx-auto space-y-8">
+                
+                <div class="flex flex-col items-center justify-center space-y-4 py-6">
+                    <button onclick="playListeningAudio()" class="w-28 h-28 bg-gradient-to-tr from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-full flex items-center justify-center text-5xl shadow-lg shadow-emerald-950/50 transition duration-300 transform hover:scale-105 active:scale-95 animate-pulse">
+                        📢
+                    </button>
+                    <div class="text-center">
+                        <p class="font-bold text-slate-200">點擊按鈕重複播放發音</p>
+                        <p class="text-indigo-200/40 text-xs mt-1">聽完後，選出相對應的中文翻譯</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="listening-options">
+                    <!-- 四個選項 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 【全新全新】模式五：口說發音特訓畫面 -->
+        <div id="speaking-screen" class="screen hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <button onclick="showScreen('menu-screen')" class="flex items-center text-slate-400 hover:text-slate-200 font-bold transition">
+                    <span class="mr-1">⬅</span> 放棄特訓
+                </button>
+                <span class="text-sm font-semibold text-rose-400 bg-slate-800/80 border border-slate-700/50 px-3 py-1 rounded-full shadow animate-pulse">
+                    進度 <span id="speaking-index-num">1</span>/<span id="speaking-total-num">10</span>
+                </span>
+            </div>
+
+            <div class="bg-slate-800/50 backdrop-blur-md p-6 md:p-8 rounded-3xl border border-slate-700/50 shadow-2xl max-w-xl mx-auto space-y-6">
+                
+                <!-- 單字展示與標準示範發音 -->
+                <div class="flex flex-col items-center justify-center text-center space-y-4 py-4 border-b border-slate-700/50">
+                    <div class="text-5xl" id="speaking-emoji">🍎</div>
+                    <div class="space-y-1">
+                        <span class="block text-4xl font-extrabold tracking-wide text-amber-300 lowercase" id="speaking-en">apple</span>
+                        <span class="block text-lg text-slate-400 font-medium" id="speaking-zh">蘋果</span>
+                    </div>
+                    
+                    <button onclick="playSpeakingSample()" class="bg-slate-750 hover:bg-slate-700 border border-slate-700 text-amber-300 px-4 py-2 rounded-full text-xs font-bold transition flex items-center space-x-1 btn-bounce">
+                        <span>🔊 聆聽標準英文示範</span>
+                    </button>
+                </div>
+
+                <!-- 錄音控制區 -->
+                <div class="flex flex-col items-center justify-center space-y-4 py-6">
+                    <button id="mic-btn" onclick="toggleRecording()" class="w-24 h-24 bg-gradient-to-tr from-rose-500 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white rounded-full flex items-center justify-center text-4xl shadow-lg transition duration-300 transform hover:scale-105 active:scale-95 focus:outline-none">
+                        🎤
+                    </button>
+                    <div class="text-center space-y-1">
+                        <p class="font-extrabold text-slate-100" id="speech-instruction">點擊上方麥克風，然後開口讀出單字</p>
+                        <p class="text-xs text-rose-300 font-semibold" id="speech-status">點擊按鈕授權麥克風進行口說評估</p>
+                    </div>
+                </div>
+
+                <!-- 語音辨識反饋 -->
+                <div class="bg-slate-900/60 border border-slate-850 p-4 rounded-2xl text-center space-y-2">
+                    <span class="text-xs text-slate-400 block font-bold">偵測到您說出的英文：</span>
+                    <span class="text-xl font-bold bg-slate-950/80 px-4 py-1.5 rounded-xl border border-slate-800 text-indigo-300 inline-block min-h-[44px] lowercase" id="spoken-transcript">... 尚未開口 ...</span>
+                    <div class="pt-2 hidden" id="speaking-feedback-area">
+                        <span id="speaking-score-badge" class="text-xs font-bold px-3 py-1 rounded-full text-white bg-rose-500 shadow-sm inline-block">匹配度: 0%</span>
+                        <p class="text-sm mt-1.5 font-bold" id="speaking-eval-text"></p>
+                    </div>
+                </div>
+
+                <!-- 控制鈕 -->
+                <div class="flex space-x-3">
+                    <button id="next-speaking-btn" onclick="nextSpeakingQuestion()" class="flex-1 bg-gradient-to-r from-teal-500 to-indigo-500 hover:from-teal-400 hover:to-indigo-400 text-white py-3.5 rounded-2xl font-bold shadow-lg transition btn-bounce hidden">
+                        前進下一關 ➡️
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 學習記事本 -->
+        <div id="notebook-screen" class="screen hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <button onclick="showScreen('menu-screen')" class="flex items-center text-slate-400 hover:text-slate-200 font-bold transition">
+                    <span class="mr-1">⬅</span> 返回選單
+                </button>
+                <span class="text-sm font-semibold text-indigo-300 bg-indigo-950/40 border border-indigo-900/40 px-3 py-1 rounded-full">📓 學習記事本</span>
+            </div>
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+                <h2 class="text-xl font-bold text-slate-100">歷次學習摘要紀錄</h2>
+                <p class="text-sm text-slate-400">每次完成測驗後，系統會自動記錄學習摘要與得分。</p>
+                <div id="notebook-list" class="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                    <p class="text-slate-500 text-center py-8">尚無學習紀錄，開始冒險吧！</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 學習打卡日曆 -->
+        <div id="calendar-screen" class="screen hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <button onclick="showScreen('menu-screen')" class="flex items-center text-slate-400 hover:text-slate-200 font-bold transition">
+                    <span class="mr-1">⬅</span> 返回選單
+                </button>
+                <span class="text-sm font-semibold text-emerald-300 bg-emerald-950/40 border border-emerald-900/40 px-3 py-1 rounded-full">📅 學習打卡牆</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2 bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <button onclick="changeCalendarMonth(-1)" class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 transition btn-bounce">◀</button>
+                        <h2 class="text-lg font-bold text-slate-100" id="cal-month-label">2026年6月</h2>
+                        <button onclick="changeCalendarMonth(1)" class="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 hover:bg-slate-700 transition btn-bounce">▶</button>
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 text-center text-xs text-slate-500 font-bold mb-1">
+                        <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+                    </div>
+                    <div id="cal-grid" class="grid grid-cols-7 gap-1.5"></div>
+                    <p class="text-xs text-slate-500 text-center">✓ 標記代表當日有學習打卡</p>
+                </div>
+                <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+                    <div class="text-center">
+                        <span class="text-4xl">🔥</span>
+                        <p class="text-3xl font-black text-amber-400 mt-2" id="streak-count">0</p>
+                        <p class="text-sm text-slate-400">連續學習天數</p>
+                    </div>
+                    <div class="border-t border-slate-700/50 pt-4 space-y-2 text-sm">
+                        <div class="flex justify-between"><span class="text-slate-400">本月打卡</span><span class="font-bold text-emerald-400" id="cal-month-checkins">0 天</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">累計打卡</span><span class="font-bold text-indigo-400" id="cal-total-checkins">0 天</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 老師後台 -->
+        <div id="teacher-dashboard-screen" class="screen hidden space-y-6">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <h2 class="text-2xl font-black text-slate-100 flex items-center"><span class="mr-2">📊</span> 學生學習管理後台</h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="refreshTeacherDashboard()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-full font-bold transition btn-bounce">🔄 重新整理</button>
+                    <span class="text-xs bg-emerald-950/60 text-emerald-300 border border-emerald-800 px-3 py-1 rounded-full" id="dashboard-updated">資料即時更新</span>
+                </div>
+            </div>
+            <!-- 學生帳號管理 -->
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center"><span class="mr-2">👥</span> 學生帳號管理</h3>
+                <p class="text-xs text-slate-400">學生以「英文姓名」登入（大小寫不拘），您可新增學生或修改姓名、密碼。</p>
+                <div id="teacher-accounts-list" class="space-y-3"></div>
+                <div class="border-t border-slate-700/50 pt-4 space-y-3">
+                    <h4 class="text-sm font-bold text-indigo-300">➕ 新增學生</h4>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <input id="new-student-name" type="text" placeholder="英文姓名（如 Tom）" class="bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                        <div class="relative">
+                            <input id="new-student-password" type="password" placeholder="設定密碼" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 pr-12 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                            <button type="button" onclick="togglePwdVisibility('new-student-password', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-lg transition" title="顯示/隱藏密碼">👁️</button>
+                        </div>
+                    </div>
+                    <button onclick="addNewStudent()" class="bg-emerald-700 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition btn-bounce">新增學生帳號</button>
+                </div>
+            </div>
+            <!-- 上傳自訂單字 Excel -->
+            <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+                <h3 class="text-lg font-bold text-slate-100 flex items-center"><span class="mr-2">📤</span> 上傳自訂單字主題（Excel）</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    請準備 Excel（.xlsx / .xls）或 CSV：<b>第一欄英文單字、第二欄中文翻譯</b>（第一列可寫標題會自動略過）。<br>
+                    <b>檔案名稱</b>會成為學生看到的「學習主題」名稱，上傳後即可使用字卡、連連看、拼字、聽力、口說等全部模式。
+                </p>
+                <div class="flex flex-wrap gap-3 items-center">
+                    <input type="file" id="excel-upload-input" accept=".xlsx,.xls,.csv" class="hidden" onchange="handleExcelUpload(this)">
+                    <button onclick="document.getElementById('excel-upload-input').click()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition btn-bounce">📁 選擇 Excel 上傳</button>
+                    <a href="#" onclick="downloadExcelTemplate(); return false;" class="text-xs text-indigo-400 hover:text-indigo-300 underline">下載範例格式</a>
+                </div>
+                <p id="excel-upload-msg" class="text-xs hidden"></p>
+                <div id="custom-packs-list" class="space-y-2"></div>
+            </div>
+            <div id="teacher-student-cards" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            <div id="teacher-detail-panel" class="hidden bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
+                    <h3 class="text-xl font-bold text-slate-100" id="detail-student-name">學生詳情</h3>
+                    <button onclick="closeTeacherDetail()" class="text-slate-400 hover:text-slate-200 text-sm font-bold">✕ 關閉</button>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="detail-stats"></div>
+                <div>
+                    <h4 class="text-sm font-bold text-indigo-300 mb-2">📅 本月打卡日曆</h4>
+                    <div id="detail-cal-grid" class="grid grid-cols-7 gap-1"></div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-indigo-300 mb-2">📓 近期學習摘要</h4>
+                    <div id="detail-notebook" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                </div>
+                <div>
+                    <h4 class="text-sm font-bold text-indigo-300 mb-2">📈 每日學習狀況</h4>
+                    <div id="detail-daily-logs" class="space-y-2 max-h-48 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 結算/成功彈窗畫面 -->
+        <div id="success-overlay" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-center justify-center p-4">
+            <div class="bg-slate-900 rounded-3xl p-6 md:p-8 max-w-md w-full text-center shadow-2xl border border-indigo-500/20 space-y-6 transform scale-95 transition-transform duration-300" id="success-card">
+                <div class="text-7xl animate-bounce">🏆</div>
+                <div>
+                    <h2 class="text-2xl font-black text-slate-100" id="success-title">太棒了！挑戰成功</h2>
+                    <p class="text-slate-400 mt-2 text-sm" id="success-message">恭喜你完成這個模式的考驗！</p>
+                </div>
+                
+                <!-- 獲得獎勵 -->
+                <div class="bg-indigo-950/50 border border-indigo-900/30 p-4 rounded-2xl flex items-center justify-around">
+                    <div>
+                        <span class="block text-2xl">⭐</span>
+                        <span class="text-xs text-slate-400">獲得星星</span>
+                        <span class="block text-lg font-bold text-amber-300" id="success-stars">+10</span>
+                    </div>
+                    <div class="border-r border-indigo-900/30 h-10"></div>
+                    <div>
+                        <span class="block text-2xl">🎯</span>
+                        <span class="text-xs text-slate-400">測驗得分</span>
+                        <span class="block text-lg font-bold text-emerald-400" id="success-quiz-score">100/100</span>
+                    </div>
+                    <div class="border-r border-indigo-900/30 h-10"></div>
+                    <div>
+                        <span class="block text-2xl">📊</span>
+                        <span class="text-xs text-slate-400">答對率</span>
+                        <span class="block text-lg font-bold text-indigo-400" id="success-accuracy">100%</span>
+                    </div>
+                </div>
+
+                <div class="flex space-x-3">
+                    <button onclick="closeSuccessOverlay()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 py-3 rounded-2xl font-bold transition btn-bounce">
+                        返回主選單
+                    </button>
+                    <button id="success-retry-btn" onclick="retryCurrentGame()" class="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 rounded-2xl font-bold shadow-lg transition btn-bounce">
+                        再玩一次 🔄
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    </div><!-- /app-wrapper -->
+
+    <!-- 慶祝用的全螢幕 Canvas -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50 hidden"></canvas>
+
+    <script>
+        // ----------------------------------------------------
+        // 301 個完整單字資料庫 (全部小寫格式)
+        // ----------------------------------------------------
+        const masterVocabulary = [
+            // --- 1. 數字 Numbers (1-29) ---
+            { id: 1, en: "zero", zh: "零", emoji: "0️⃣", catId: "numbers" },
+            { id: 2, en: "one", zh: "一", emoji: "1️⃣", catId: "numbers" },
+            { id: 3, en: "two", zh: "二", emoji: "2️⃣", catId: "numbers" },
+            { id: 4, en: "three", zh: "三", emoji: "3️⃣", catId: "numbers" },
+            { id: 5, en: "four", zh: "四", emoji: "4️⃣", catId: "numbers" },
+            { id: 6, en: "five", zh: "五", emoji: "5️⃣", catId: "numbers" },
+            { id: 7, en: "six", zh: "六", emoji: "6️⃣", catId: "numbers" },
+            { id: 8, en: "seven", zh: "七", emoji: "7️⃣", catId: "numbers" },
+            { id: 9, en: "eight", zh: "八", emoji: "8️⃣", catId: "numbers" },
+            { id: 10, en: "nine", zh: "九", emoji: "9️⃣", catId: "numbers" },
+            { id: 11, en: "ten", zh: "十", emoji: "🔟", catId: "numbers" },
+            { id: 12, en: "eleven", zh: "十一", emoji: "🎲", catId: "numbers" },
+            { id: 13, en: "twelve", zh: "十二", emoji: "⏰", catId: "numbers" },
+            { id: 14, en: "thirteen", zh: "十三", emoji: "🍀", catId: "numbers" },
+            { id: 15, en: "fourteen", zh: "十四", emoji: "✨", catId: "numbers" },
+            { id: 16, en: "fifteen", zh: "十五", emoji: "🎈", catId: "numbers" },
+            { id: 17, en: "sixteen", zh: "十六", emoji: "🎁", catId: "numbers" },
+            { id: 18, en: "seventeen", zh: "十七", emoji: "🎉", catId: "numbers" },
+            { id: 19, en: "eighteen", zh: "十八", emoji: "🔥", catId: "numbers" },
+            { id: 20, en: "nineteen", zh: "十九", emoji: "💡", catId: "numbers" },
+            { id: 21, en: "twenty", zh: "二十", emoji: "🌟", catId: "numbers" },
+            { id: 22, en: "thirty", zh: "三十", emoji: "📅", catId: "numbers" },
+            { id: 23, en: "forty", zh: "四十", emoji: "🎯", catId: "numbers" },
+            { id: 24, en: "fifty", zh: "五十", emoji: "🏁", catId: "numbers" },
+            { id: 25, en: "sixty", zh: "六十", emoji: "🚀", catId: "numbers" },
+            { id: 26, en: "seventy", zh: "七十", emoji: "☄️", catId: "numbers" },
+            { id: 27, en: "eighty", zh: "八十", emoji: "🏆", catId: "numbers" },
+            { id: 28, en: "ninety", zh: "九十", emoji: "👑", catId: "numbers" },
+            { id: 29, en: "hundred", zh: "百", emoji: "💯", catId: "numbers" },
+
+            // --- 2. 人們 People (30-59) ---
+            { id: 30, en: "i", zh: "我", emoji: "🙋", catId: "people" },
+            { id: 31, en: "you", zh: "你（你們）", emoji: "🫵", catId: "people" },
+            { id: 32, en: "we", zh: "我們", emoji: "👥", catId: "people" },
+            { id: 33, en: "they", zh: "他們", emoji: "🧑‍🤝‍🧑", catId: "people" },
+            { id: 34, en: "he", zh: "他（男）", emoji: "👦", catId: "people" },
+            { id: 35, en: "she", zh: "她（女）", emoji: "👧", catId: "people" },
+            { id: 36, en: "it", zh: "它（牠）", emoji: "🤖", catId: "people" },
+            { id: 37, en: "my", zh: "我的", emoji: "❤️", catId: "people" },
+            { id: 38, en: "your", zh: "你的（你們的）", emoji: "👉", catId: "people" },
+            { id: 39, en: "his", zh: "他的（男）", emoji: "🎒", catId: "people" },
+            { id: 40, en: "her", zh: "她的（女）", emoji: "👜", catId: "people" },
+            { id: 41, en: "its", zh: "它的、牠的", emoji: "🐾", catId: "people" },
+            { id: 42, en: "grandmother", zh: "阿嬤", emoji: "👵", catId: "people" },
+            { id: 43, en: "grandfather", zh: "阿公", emoji: "👴", catId: "people" },
+            { id: 44, en: "mother", zh: "媽媽", emoji: "👩", catId: "people" },
+            { id: 45, en: "father", zh: "爸爸", emoji: "👨", catId: "people" },
+            { id: 46, en: "sister", zh: "姊妹", emoji: "👭", catId: "people" },
+            { id: 47, en: "brother", zh: "兄弟", emoji: "👬", catId: "people" },
+            { id: 48, en: "baby", zh: "嬰兒", emoji: "👶", catId: "people" },
+            { id: 49, en: "girl", zh: "女孩", emoji: "👧", catId: "people" },
+            { id: 50, en: "boy", zh: "男孩", emoji: "👦", catId: "people" },
+            { id: 51, en: "woman", zh: "女人", emoji: "👩", catId: "people" },
+            { id: 52, en: "man", zh: "男人", emoji: "👨", catId: "people" },
+            { id: 53, en: "cook", zh: "廚師", emoji: "🧑‍🍳", catId: "people" },
+            { id: 54, en: "teacher", zh: "老師", emoji: "🧑‍🏫", catId: "people" },
+            { id: 55, en: "student", zh: "學生", emoji: "🧑‍🎓", catId: "people" },
+            { id: 56, en: "farmer", zh: "農夫", emoji: "🧑‍🌾", catId: "people" },
+            { id: 57, en: "doctor", zh: "醫生", emoji: "🧑‍⚕️", catId: "people" },
+            { id: 58, en: "nurse", zh: "護理師", emoji: "👩‍⚕️", catId: "people" },
+            { id: 59, en: "driver", zh: "司機", emoji: "🚌", catId: "people" },
+
+            // --- 3. 身體與服飾 Body & Clothing (60-78) ---
+            { id: 60, en: "head", zh: "頭", emoji: "🧑", catId: "body_clothing" },
+            { id: 61, en: "hair", zh: "頭髮", emoji: "🦱", catId: "body_clothing" },
+            { id: 62, en: "eye", zh: "眼睛", emoji: "👁️", catId: "body_clothing" },
+            { id: 63, en: "nose", zh: "鼻子", emoji: "👃", catId: "body_clothing" },
+            { id: 64, en: "mouth", zh: "嘴巴", emoji: "👄", catId: "body_clothing" },
+            { id: 65, en: "ear", zh: "耳朵", emoji: "👂", catId: "body_clothing" },
+            { id: 66, en: "hand", zh: "手", emoji: "✋", catId: "body_clothing" },
+            { id: 67, en: "leg", zh: "腿", emoji: "🦵", catId: "body_clothing" },
+            { id: 68, en: "foot", zh: "腳 (foot/feet)", emoji: "👣", catId: "body_clothing" },
+            { id: 69, en: "hat", zh: "帽子", emoji: "🎩", catId: "body_clothing" },
+            { id: 70, en: "glasses", zh: "眼鏡", emoji: "👓", catId: "body_clothing" },
+            { id: 71, en: "shirt", zh: "襯衫", emoji: "👕", catId: "body_clothing" },
+            { id: 72, en: "shorts", zh: "短褲", emoji: "🩳", catId: "body_clothing" },
+            { id: 73, en: "pants", zh: "長褲", emoji: "👖", catId: "body_clothing" },
+            { id: 74, en: "skirt", zh: "裙子", emoji: "👗", catId: "body_clothing" },
+            { id: 75, en: "dress", zh: "洋裝", emoji: "👘", catId: "body_clothing" },
+            { id: 76, en: "socks", zh: "襪子", emoji: "🧦", catId: "body_clothing" },
+            { id: 77, en: "shoes", zh: "鞋子", emoji: "👟", catId: "body_clothing" },
+            { id: 78, en: "boots", zh: "靴子", emoji: "🥾", catId: "body_clothing" },
+
+            // --- 4. 動物 Animals (79-95) ---
+            { id: 79, en: "bear", zh: "熊", emoji: "🐻", catId: "animals" },
+            { id: 80, en: "dog", zh: "狗", emoji: "🐶", catId: "animals" },
+            { id: 81, en: "cat", zh: "貓", emoji: "🐱", catId: "animals" },
+            { id: 82, en: "bird", zh: "鳥", emoji: "🐦", catId: "animals" },
+            { id: 83, en: "rabbit", zh: "兔", emoji: "🐰", catId: "animals" },
+            { id: 84, en: "frog", zh: "青蛙", emoji: "🐸", catId: "animals" },
+            { id: 85, en: "fish", zh: "魚", emoji: "🐟", catId: "animals" },
+            { id: 86, en: "chicken", zh: "雞", emoji: "🐔", catId: "animals" },
+            { id: 87, en: "turtle", zh: "烏龜", emoji: "🐢", catId: "animals" },
+            { id: 88, en: "lion", zh: "獅子", emoji: "🦁", catId: "animals" },
+            { id: 89, en: "tiger", zh: "虎", emoji: "🐯", catId: "animals" },
+            { id: 90, en: "monkey", zh: "猴子", emoji: "🐵", catId: "animals" },
+            { id: 91, en: "giraffe", zh: "長頸鹿", emoji: "🦒", catId: "animals" },
+            { id: 92, en: "fox", zh: "狐狸", emoji: "🦊", catId: "animals" },
+            { id: 93, en: "zebra", zh: "斑馬", emoji: "🦓", catId: "animals" },
+            { id: 94, en: "pig", zh: "豬", emoji: "🐷", catId: "animals" },
+            { id: 95, en: "elephant", zh: "大象", emoji: "🐘", catId: "animals" },
+
+            // --- 5. 生活與自然 Daily Objects & Nature (96-145) ---
+            { id: 96, en: "pen", zh: "原子筆", emoji: "🖊️", catId: "daily_nature" },
+            { id: 97, en: "pencil", zh: "鉛筆", emoji: "✏️", catId: "daily_nature" },
+            { id: 98, en: "marker", zh: "麥克筆", emoji: "🖍️", catId: "daily_nature" },
+            { id: 99, en: "eraser", zh: "橡皮擦", emoji: "🧼", catId: "daily_nature" },
+            { id: 100, en: "ruler", zh: "尺", emoji: "📏", catId: "daily_nature" },
+            { id: 101, en: "book", zh: "書", emoji: "📖", catId: "daily_nature" },
+            { id: 102, en: "bag", zh: "袋子", emoji: "🎒", catId: "daily_nature" },
+            { id: 103, en: "desk", zh: "書桌", emoji: "🪵", catId: "daily_nature" },
+            { id: 104, en: "table", zh: "餐桌", emoji: "🍽️", catId: "daily_nature" },
+            { id: 105, en: "chair", zh: "椅子", emoji: "🪑", catId: "daily_nature" },
+            { id: 106, en: "crayon", zh: "蠟筆", emoji: "🖍️", catId: "daily_nature" },
+            { id: 107, en: "box", zh: "箱子", emoji: "📦", catId: "daily_nature" },
+            { id: 108, en: "door", zh: "門", emoji: "🚪", catId: "daily_nature" },
+            { id: 109, en: "window", zh: "窗戶", emoji: "🪟", catId: "daily_nature" },
+            { id: 110, en: "picture", zh: "圖片", emoji: "🖼️", catId: "daily_nature" },
+            { id: 111, en: "tv", zh: "電視", emoji: "📺", catId: "daily_nature" },
+            { id: 112, en: "sofa", zh: "沙發", emoji: "🛋️", catId: "daily_nature" },
+            { id: 113, en: "light", zh: "光", emoji: "🔆", catId: "daily_nature" },
+            { id: 114, en: "bed", zh: "床", emoji: "🛏️", catId: "daily_nature" },
+            { id: 115, en: "lamp", zh: "燈", emoji: "💡", catId: "daily_nature" },
+            { id: 116, en: "clock", zh: "時鐘", emoji: "⏰", catId: "daily_nature" },
+            { id: 117, en: "cell phone", zh: "手機", emoji: "📱", catId: "daily_nature" },
+            { id: 118, en: "video game", zh: "電動", emoji: "🎮", catId: "daily_nature" },
+            { id: 119, en: "computer", zh: "電腦", emoji: "💻", catId: "daily_nature" },
+            { id: 120, en: "cup", zh: "杯子", emoji: "🥤", catId: "daily_nature" },
+            { id: 121, en: "mug", zh: "馬克杯", emoji: "☕", catId: "daily_nature" },
+            { id: 122, en: "bowl", zh: "碗", emoji: "🥣", catId: "daily_nature" },
+            { id: 123, en: "ball", zh: "球", emoji: "⚽", catId: "daily_nature" },
+            { id: 124, en: "yo-yo", zh: "溜溜球", emoji: "🪀", catId: "daily_nature" },
+            { id: 125, en: "bat", zh: "球棒", emoji: "🏏", catId: "daily_nature" },
+            { id: 126, en: "robot", zh: "機器人", emoji: "🤖", catId: "daily_nature" },
+            { id: 127, en: "kite", zh: "風箏", emoji: "🪁", catId: "daily_nature" },
+            { id: 128, en: "doll", zh: "娃娃", emoji: "🪆", catId: "daily_nature" },
+            { id: 129, en: "mop", zh: "拖把", emoji: "🧹", catId: "daily_nature" },
+            { id: 130, en: "map", zh: "地圖", emoji: "🗺️", catId: "daily_nature" },
+            { id: 131, en: "weather", zh: "天氣", emoji: "🌤️", catId: "daily_nature" },
+            { id: 132, en: "sun", zh: "太陽", emoji: "☀️", catId: "daily_nature" },
+            { id: 133, en: "cloud", zh: "雲", emoji: "☁️", catId: "daily_nature" },
+            { id: 134, en: "wind", zh: "風", emoji: "💨", catId: "daily_nature" },
+            { id: 135, en: "rain", zh: "雨", emoji: "🌧️", catId: "daily_nature" },
+            { id: 136, en: "snow", zh: "雪", emoji: "❄️", catId: "daily_nature" },
+            { id: 137, en: "river", zh: "河", emoji: "🏞️", catId: "daily_nature" },
+            { id: 138, en: "flower", zh: "花", emoji: "🌸", catId: "daily_nature" },
+            { id: 139, en: "grass", zh: "草", emoji: "🌱", catId: "daily_nature" },
+            { id: 140, en: "tree", zh: "樹", emoji: "🌳", catId: "daily_nature" },
+            { id: 141, en: "bike", zh: "腳踏車", emoji: "🚲", catId: "daily_nature" },
+            { id: 142, en: "car", zh: "車", emoji: "🚗", catId: "daily_nature" },
+            { id: 143, en: "bus", zh: "公車", emoji: "🚌", catId: "daily_nature" },
+            { id: 144, en: "train", zh: "火車", emoji: "🚂", catId: "daily_nature" },
+            { id: 145, en: "taxi", zh: "計程車", emoji: "🚖", catId: "daily_nature" },
+
+            // --- 6. 食物 Food (146-175) ---
+            { id: 146, en: "breakfast", zh: "早餐", emoji: "🍳", catId: "food" },
+            { id: 147, en: "lunch", zh: "午餐", emoji: "🍱", catId: "food" },
+            { id: 148, en: "dinner", zh: "晚餐", emoji: "🍽️", catId: "food" },
+            { id: 149, en: "cookie", zh: "餅乾", emoji: "🍪", catId: "food" },
+            { id: 150, en: "ice cream", zh: "冰淇淋", emoji: "🍦", catId: "food" },
+            { id: 151, en: "candy", zh: "糖果", emoji: "🍬", catId: "food" },
+            { id: 152, en: "hamburger", zh: "漢堡", emoji: "🍔", catId: "food" },
+            { id: 153, en: "hot dog", zh: "熱狗", emoji: "🌭", catId: "food" },
+            { id: 154, en: "pizza", zh: "比薩", emoji: "🍕", catId: "food" },
+            { id: 155, en: "bread", zh: "麵包", emoji: "🍞", catId: "food" },
+            { id: 156, en: "sandwich", zh: "三明治", emoji: "🥪", catId: "food" },
+            { id: 157, en: "cake", zh: "蛋糕", emoji: "🍰", catId: "food" },
+            { id: 158, en: "rice", zh: "飯", emoji: "🍚", catId: "food" },
+            { id: 159, en: "noodles", zh: "麵", emoji: "🍜", catId: "food" },
+            { id: 160, en: "spaghetti", zh: "義大利麵", emoji: "🍝", catId: "food" },
+            { id: 161, en: "tea", zh: "茶", emoji: "🍵", catId: "food" },
+            { id: 162, en: "coke", zh: "可樂", emoji: "🥤", catId: "food" },
+            { id: 163, en: "soda", zh: "汽水", emoji: "🥤", catId: "food" },
+            { id: 164, en: "water", zh: "水", emoji: "💧", catId: "food" },
+            { id: 165, en: "juice", zh: "果汁", emoji: "🍹", catId: "food" },
+            { id: 166, en: "milk", zh: "牛奶", emoji: "🥛", catId: "food" },
+            { id: 167, en: "egg", zh: "蛋", emoji: "🥚", catId: "food" },
+            { id: 168, en: "ham", zh: "火腿", emoji: "🥩", catId: "food" },
+            { id: 169, en: "salad", zh: "沙拉", emoji: "🥗", catId: "food" },
+            { id: 170, en: "tomato", zh: "番茄", emoji: "🍅", catId: "food" },
+            { id: 171, en: "banana", zh: "香蕉", emoji: "🍌", catId: "food" },
+            { id: 172, en: "apple", zh: "蘋果", emoji: "🍎", catId: "food" },
+            { id: 173, en: "pear", zh: "梨子", emoji: "🍐", catId: "food" },
+            { id: 174, en: "grape", zh: "葡萄", emoji: "🍇", catId: "food" },
+            { id: 175, en: "peach", zh: "桃子", emoji: "🍑", catId: "food" },
+
+            // --- 7. 空間與地方 Places (176-190) ---
+            { id: 176, en: "home", zh: "家", emoji: "🏡", catId: "places" },
+            { id: 177, en: "school", zh: "學校", emoji: "🏫", catId: "places" },
+            { id: 178, en: "park", zh: "公園", emoji: "🛝", catId: "places" },
+            { id: 179, en: "zoo", zh: "動物園", emoji: "🐼", catId: "places" },
+            { id: 180, en: "store", zh: "商店 (store)", emoji: "🏪", catId: "places" },
+            { id: 181, en: "shop", zh: "商店 (shop)", emoji: "🛍️", catId: "places" },
+            { id: 182, en: "house", zh: "房子", emoji: "🏠", catId: "places" },
+            { id: 183, en: "garage", zh: "車庫", emoji: "🚘", catId: "places" },
+            { id: 184, en: "living room", zh: "客廳", emoji: "🛋️", catId: "places" },
+            { id: 185, en: "dining room", zh: "飯廳", emoji: "🍽️", catId: "places" },
+            { id: 186, en: "kitchen", zh: "廚房", emoji: "🍳", catId: "places" },
+            { id: 187, en: "bedroom", zh: "臥室", emoji: "🛏️", catId: "places" },
+            { id: 188, en: "bathroom", zh: "浴室、廁所", emoji: "🛁", catId: "places" },
+            { id: 189, en: "yard", zh: "庭院", emoji: "🪴", catId: "places" },
+            { id: 190, en: "garden", zh: "花園、菜園", emoji: "🌻", catId: "places" },
+
+            // --- 8. 時間 Time (191-204) ---
+            { id: 191, en: "o'clock", zh: "…點鐘", emoji: "⏰", catId: "time" },
+            { id: 192, en: "now", zh: "現在", emoji: "⌛", catId: "time" },
+            { id: 193, en: "morning", zh: "早上", emoji: "🌅", catId: "time" },
+            { id: 194, en: "afternoon", zh: "下午", emoji: "☀️", catId: "time" },
+            { id: 195, en: "evening", zh: "傍晚", emoji: "🌇", catId: "time" },
+            { id: 196, en: "night", zh: "晚上", emoji: "🌌", catId: "time" },
+            { id: 197, en: "today", zh: "今天", emoji: "📅", catId: "time" },
+            { id: 198, en: "sunday", zh: "星期天", emoji: "☀️", catId: "time" },
+            { id: 199, en: "monday", zh: "星期一", emoji: "🌙", catId: "time" },
+            { id: 200, en: "tuesday", zh: "星期二", emoji: "🔥", catId: "time" },
+            { id: 201, en: "wednesday", zh: "星期三", emoji: "💧", catId: "time" },
+            { id: 202, en: "thursday", zh: "星期四", emoji: "🌳", catId: "time" },
+            { id: 203, en: "friday", zh: "星期五", emoji: "🪙", catId: "time" },
+            { id: 204, en: "saturday", zh: "星期六", emoji: "🪐", catId: "time" },
+
+            // --- 9. 動詞 Verbs (205-237) ---
+            { id: 205, en: "do", zh: "做", emoji: "⚡", catId: "verbs" },
+            { id: 206, en: "like", zh: "喜歡", emoji: "👍", catId: "verbs" },
+            { id: 207, en: "love", zh: "愛", emoji: "❤️", catId: "verbs" },
+            { id: 208, en: "want", zh: "想要", emoji: "💭", catId: "verbs" },
+            { id: 209, en: "have", zh: "擁有 (have/has)", emoji: "🤲", catId: "verbs" },
+            { id: 210, en: "run", zh: "跑", emoji: "🏃", catId: "verbs" },
+            { id: 211, en: "walk", zh: "走路", emoji: "🚶", catId: "verbs" },
+            { id: 212, en: "swim", zh: "游泳", emoji: "🏊", catId: "verbs" },
+            { id: 213, en: "jump", zh: "跳", emoji: "🦘", catId: "verbs" },
+            { id: 214, en: "ride", zh: "騎", emoji: "🚴", catId: "verbs" },
+            { id: 215, en: "dance", zh: "跳舞", emoji: "💃", catId: "verbs" },
+            { id: 216, en: "sing", zh: "唱", emoji: "🎤", catId: "verbs" },
+            { id: 217, en: "write", zh: "寫", emoji: "✍️", catId: "verbs" },
+            { id: 218, en: "read", zh: "閱讀", emoji: "📖", catId: "verbs" },
+            { id: 219, en: "draw", zh: "（乾筆）畫", emoji: "✏️", catId: "verbs" },
+            { id: 220, en: "color", zh: "上色", emoji: "🎨", catId: "verbs" },
+            { id: 221, en: "paint", zh: "（濕筆）畫", emoji: "🖌️", catId: "verbs" },
+            { id: 222, en: "speak", zh: "說 (speak)", emoji: "🗣️", catId: "verbs" },
+            { id: 223, en: "say", zh: "說 (say)", emoji: "💬", catId: "verbs" },
+            { id: 224, en: "eat", zh: "吃", emoji: "🍔", catId: "verbs" },
+            { id: 225, en: "drink", zh: "喝", emoji: "🥤", catId: "verbs" },
+            { id: 226, en: "look", zh: "看", emoji: "👀", catId: "verbs" },
+            { id: 227, en: "watch", zh: "看 (電視/比賽)", emoji: "📺", catId: "verbs" },
+            { id: 228, en: "see", zh: "看見", emoji: "👁️", catId: "verbs" },
+            { id: 229, en: "listen", zh: "聽", emoji: "👂", catId: "verbs" },
+            { id: 230, en: "smile", zh: "微笑", emoji: "😊", catId: "verbs" },
+            { id: 231, en: "laugh", zh: "大笑", emoji: "😆", catId: "verbs" },
+            { id: 232, en: "cry", zh: "哭", emoji: "😭", catId: "verbs" },
+            { id: 233, en: "hold", zh: "拿、抱", emoji: "✊", catId: "verbs" },
+            { id: 234, en: "put", zh: "放", emoji: "📥", catId: "verbs" },
+            { id: 235, en: "take", zh: "拿、帶走", emoji: "📤", catId: "verbs" },
+            { id: 236, en: "sit", zh: "坐", emoji: "🪑", catId: "verbs" },
+            { id: 237, en: "stand", zh: "站", emoji: "🧍", catId: "verbs" },
+
+            // --- 10. 形容詞 Adjectives (238-281) ---
+            { id: 238, en: "fine", zh: "好的", emoji: "👌", catId: "adjectives" },
+            { id: 239, en: "good", zh: "好的 (good)", emoji: "👍", catId: "adjectives" },
+            { id: 240, en: "bad", zh: "壞的", emoji: "👎", catId: "adjectives" },
+            { id: 241, en: "favorite", zh: "最喜歡的", emoji: "💖", catId: "adjectives" },
+            { id: 242, en: "big", zh: "大的", emoji: "🐘", catId: "adjectives" },
+            { id: 243, en: "small", zh: "小的", emoji: "🐭", catId: "adjectives" },
+            { id: 244, en: "little", zh: "小的 (little)", emoji: "🍼", catId: "adjectives" },
+            { id: 245, en: "old", zh: "老的、舊的", emoji: "👴", catId: "adjectives" },
+            { id: 246, en: "young", zh: "年輕的", emoji: "👶", catId: "adjectives" },
+            { id: 247, en: "tall", zh: "高的", emoji: "🦒", catId: "adjectives" },
+            { id: 248, en: "long", zh: "長的", emoji: "📏", catId: "adjectives" },
+            { id: 249, en: "short", zh: "短的", emoji: "📐", catId: "adjectives" },
+            { id: 250, en: "thin", zh: "瘦的、薄的", emoji: "🪶", catId: "adjectives" },
+            { id: 251, en: "fat", zh: "胖的", emoji: "🐖", catId: "adjectives" },
+            { id: 252, en: "fast", zh: "快的", emoji: "⚡", catId: "adjectives" },
+            { id: 253, en: "slow", zh: "慢的", emoji: "🐢", catId: "adjectives" },
+            { id: 254, en: "clean", zh: "乾淨的", emoji: "🧼", catId: "adjectives" },
+            { id: 255, en: "dirty", zh: "髒的", emoji: "🧹", catId: "adjectives" },
+            { id: 256, en: "hungry", zh: "餓的", emoji: "🍕", catId: "adjectives" },
+            { id: 257, en: "thirsty", zh: "渴的", emoji: "🥤", catId: "adjectives" },
+            { id: 258, en: "happy", zh: "開心的", emoji: "😄", catId: "adjectives" },
+            { id: 259, en: "unhappy", zh: "不開心的", emoji: "☹️", catId: "adjectives" },
+            { id: 260, en: "sad", zh: "傷心的", emoji: "😭", catId: "adjectives" },
+            { id: 261, en: "angry", zh: "生氣的", emoji: "😡", catId: "adjectives" },
+            { id: 262, en: "sick", zh: "生病的", emoji: "🤒", catId: "adjectives" },
+            { id: 263, en: "tired", zh: "累的", emoji: "🥱", catId: "adjectives" },
+            { id: 264, en: "hot", zh: "熱的", emoji: "🥵", catId: "adjectives" },
+            { id: 265, en: "cold", zh: "冷的", emoji: "🥶", catId: "adjectives" },
+            { id: 266, en: "rainy", zh: "下雨的", emoji: "🌧️", catId: "adjectives" },
+            { id: 267, en: "snowy", zh: "下雪的", emoji: "❄️", catId: "adjectives" },
+            { id: 268, en: "sunny", zh: "晴朗的", emoji: "☀️", catId: "adjectives" },
+            { id: 269, en: "cloudy", zh: "多雲的", emoji: "☁️", catId: "adjectives" },
+            { id: 270, en: "windy", zh: "起風的", emoji: "🌬️", catId: "adjectives" },
+            { id: 271, en: "black", zh: "黑色的", emoji: "⬛", catId: "adjectives" },
+            { id: 272, en: "white", zh: "白色的", emoji: "⬜", catId: "adjectives" },
+            { id: 273, en: "gray", zh: "灰色的", emoji: "🩶", catId: "adjectives" },
+            { id: 274, en: "brown", zh: "咖啡色的", emoji: "🤎", catId: "adjectives" },
+            { id: 275, en: "red", zh: "紅色的", emoji: "🟥", catId: "adjectives" },
+            { id: 276, en: "orange", zh: "橘色的", emoji: "🟧", catId: "adjectives" },
+            { id: 277, en: "yellow", zh: "黃色的", emoji: "🟨", catId: "adjectives" },
+            { id: 278, en: "green", zh: "綠色的", emoji: "🟩", catId: "adjectives" },
+            { id: 279, en: "blue", zh: "藍色的", emoji: "🟦", catId: "adjectives" },
+            { id: 280, en: "purple", zh: "紫色的", emoji: "🟪", catId: "adjectives" },
+            { id: 281, en: "pink", zh: "粉紅色的", emoji: "🩷", catId: "adjectives" },
+
+            // --- 11. 介係詞與疑問字 Prepositions & Questions (282-301) ---
+            { id: 282, en: "at", zh: "在…地點；在…時刻", emoji: "📍", catId: "prep_questions" },
+            { id: 283, en: "in", zh: "在…裡面", emoji: "📥", catId: "prep_questions" },
+            { id: 284, en: "on", zh: "在…上面", emoji: "🧱", catId: "prep_questions" },
+            { id: 285, en: "under", zh: "在…下面", emoji: "👇", catId: "prep_questions" },
+            { id: 286, en: "by", zh: "在…旁邊", emoji: "🪵", catId: "prep_questions" },
+            { id: 287, en: "next to", zh: "在…旁邊", emoji: "👥", catId: "prep_questions" },
+            { id: 288, en: "beside", zh: "在…旁邊", emoji: "🪟", catId: "prep_questions" },
+            { id: 289, en: "in front of", zh: "在…前面", emoji: "🚶", catId: "prep_questions" },
+            { id: 290, en: "behind", zh: "在…後面", emoji: "🫣", catId: "prep_questions" },
+            { id: 291, en: "who", zh: "誰", emoji: "👤", catId: "prep_questions" },
+            { id: 292, en: "what", zh: "什麼", emoji: "❓", catId: "prep_questions" },
+            { id: 293, en: "when", zh: "何時", emoji: "📅", catId: "prep_questions" },
+            { id: 294, en: "where", zh: "哪裡", emoji: "🗺️", catId: "prep_questions" },
+            { id: 295, en: "which", zh: "哪一個", emoji: "👈", catId: "prep_questions" },
+            { id: 296, en: "why", zh: "為什麼", emoji: "🤔", catId: "prep_questions" },
+            { id: 297, en: "what time", zh: "幾點", emoji: "⏰", catId: "prep_questions" },
+            { id: 298, en: "how", zh: "如何、怎麼", emoji: "⚙️", catId: "prep_questions" },
+            { id: 299, en: "how old", zh: "幾歲", emoji: "🎂", catId: "prep_questions" },
+            { id: 300, en: "how much", zh: "多少", emoji: "💰", catId: "prep_questions" },
+            { id: 301, en: "how many", zh: "多少 (幾個)", emoji: "🧮", catId: "prep_questions" }
+        ];
+
+        // 11 個主題範疇設定（內建）
+        const BUILTIN_CATEGORIES = [
+            { id: "animals", name: "動物🦁", desc: "常見陸地、空中、海洋等生活動物", emoji: "🦁" },
+            { id: "numbers", name: "數字🔢", desc: "0到100的基礎與進階數字讀寫", emoji: "🔢" },
+            { id: "people", name: "人物與代稱👥", desc: "代名詞、家庭成員與社會職業", emoji: "👥" },
+            { id: "body_clothing", name: "身體與服飾👚", desc: "五官肢體部位與日常時髦穿搭", emoji: "👚" },
+            { id: "daily_nature", name: "生活與自然🎒", desc: "日常用品、家具電器與大自然生態", emoji: "🎒" },
+            { id: "food", name: "美味食物🍕", desc: "豐盛三餐、主食、甜點、涼飲與水果", emoji: "🍕" },
+            { id: "places", name: "空間與地方🏫", desc: "戶外公共場所與舒適的室內居家", emoji: "🏫" },
+            { id: "time", name: "時間與星期⏰", desc: "日常時段、今天現在與星期一至日", emoji: "⏰" },
+            { id: "verbs", name: "動詞與動作🏃", desc: "基礎生理活動、創作與感官動作", emoji: "🏃" },
+            { id: "adjectives", name: "形容詞狀態🌟", desc: "形體對比、情緒感覺與繽紛色彩", emoji: "🌟" },
+            { id: "prep_questions", name: "關係與疑問🕵️", desc: "空間時間介係詞與偵探線索疑問詞", emoji: "🕵️" }
+        ];
+        let runtimeCategories = [];
+        let runtimeVocabulary = [];
+        let customWordIdSeq = 200000;
+
+        function getCategories() { return runtimeCategories; }
+        function getVocabulary() { return runtimeVocabulary; }
+
+        function slugifyPackId(name) {
+            return 'custom_' + name.replace(/\.(xlsx|xls|csv)$/i, '').replace(/[^\w\u4e00-\u9fa5]+/g, '_').slice(0, 40) + '_' + Date.now().toString(36);
+        }
+
+        function rebuildRuntimeVocabulary() {
+            const platform = ensurePlatformStructure(getPlatformData());
+            runtimeCategories = [...BUILTIN_CATEGORIES];
+            runtimeVocabulary = [...masterVocabulary];
+            customWordIdSeq = 200000;
+            (platform.customPacks || []).forEach(pack => {
+                runtimeCategories.push({
+                    id: pack.id,
+                    name: pack.name,
+                    desc: pack.desc || `老師上傳 · 共 ${pack.words.length} 個單字`,
+                    emoji: pack.emoji || '📎',
+                    custom: true
+                });
+                (pack.words || []).forEach(w => {
+                    runtimeVocabulary.push({
+                        id: customWordIdSeq++,
+                        en: (w.en || '').toLowerCase().trim(),
+                        zh: (w.zh || '').trim(),
+                        emoji: w.emoji || '📖',
+                        catId: pack.id
+                    });
+                });
+            });
+        }
+
+        function getCustomPacks() {
+            return ensurePlatformStructure(getPlatformData()).customPacks || [];
+        }
+
+        function saveCustomPacks(packs) {
+            const platform = ensurePlatformStructure(getPlatformData());
+            platform.customPacks = packs;
+            savePlatformData(platform);
+            rebuildRuntimeVocabulary();
+        }
+
+        async function persistCustomPacksToCloud() {
+            if (cloudReady && cloudDbName) {
+                try {
+                    await savePlatformToCloud(getPlatformData());
+                } catch (e) {
+                    console.error('自訂主題雲端同步失敗:', e);
+                }
+            }
+        }
+
+        function parseExcelRows(rows) {
+            const words = [];
+            rows.forEach((row, idx) => {
+                if (!row || !row.length) return;
+                const en = String(row[0] ?? '').trim();
+                const zh = String(row[1] ?? '').trim();
+                const emoji = row[2] ? String(row[2]).trim() : '📖';
+                if (!en || !zh) return;
+                if (idx === 0 && /english|英文|單字|en\b/i.test(en) && /中文|chinese|翻譯|zh/i.test(zh)) return;
+                words.push({ en: en.toLowerCase(), zh, emoji: emoji || '📖' });
+            });
+            return words;
+        }
+
+        function parseExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        if (typeof XLSX === 'undefined') throw new Error('Excel 解析元件未載入');
+                        const data = new Uint8Array(e.target.result);
+                        const wb = XLSX.read(data, { type: 'array' });
+                        const sheet = wb.Sheets[wb.SheetNames[0]];
+                        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+                        resolve(parseExcelRows(rows));
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                reader.onerror = () => reject(new Error('無法讀取檔案'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function showExcelUploadMsg(text, isError) {
+            const el = document.getElementById('excel-upload-msg');
+            el.innerText = text;
+            el.className = `text-xs ${isError ? 'text-rose-400' : 'text-emerald-400'}`;
+            el.classList.remove('hidden');
+            setTimeout(() => el.classList.add('hidden'), 6000);
+        }
+
+        async function handleExcelUpload(input) {
+            const file = input.files[0];
+            input.value = '';
+            if (!file) return;
+            const topicName = file.name.replace(/\.(xlsx|xls|csv)$/i, '').trim() || '自訂主題';
+            try {
+                const words = await parseExcelFile(file);
+                if (words.length < 2) {
+                    showExcelUploadMsg('至少需要 2 個有效單字（第一欄英文、第二欄中文）', true);
+                    return;
+                }
+                if (words.length > 80) {
+                    showExcelUploadMsg('單字數量過多，請控制在 80 個以內', true);
+                    return;
+                }
+                const packs = getCustomPacks();
+                const dup = packs.find(p => p.name === topicName);
+                if (dup && !confirm(`主題「${topicName}」已存在，要覆蓋更新嗎？`)) return;
+
+                const newPack = {
+                    id: dup ? dup.id : slugifyPackId(file.name),
+                    name: topicName,
+                    fileName: file.name,
+                    desc: `老師上傳 · ${words.length} 個單字`,
+                    emoji: '📎',
+                    createdAt: new Date().toISOString(),
+                    words
+                };
+                const updated = dup ? packs.map(p => p.id === dup.id ? newPack : p) : [...packs, newPack];
+                saveCustomPacks(updated);
+                await persistCustomPacksToCloud();
+                renderCustomPacksList();
+                renderCategorySelector();
+                showExcelUploadMsg(`✅ 已建立主題「${topicName}」，共 ${words.length} 個單字！學生登入後即可在學習主題中看到。`, false);
+            } catch (e) {
+                showExcelUploadMsg('上傳失敗：' + e.message, true);
+            }
+        }
+
+        async function deleteCustomPack(packId) {
+            const pack = getCustomPacks().find(p => p.id === packId);
+            if (!pack || !confirm(`確定刪除主題「${pack.name}」？`)) return;
+            saveCustomPacks(getCustomPacks().filter(p => p.id !== packId));
+            await persistCustomPacksToCloud();
+            renderCustomPacksList();
+            renderCategorySelector();
+        }
+
+        function renderCustomPacksList() {
+            const list = document.getElementById('custom-packs-list');
+            if (!list) return;
+            const packs = getCustomPacks();
+            if (!packs.length) {
+                list.innerHTML = '<p class="text-xs text-slate-500">尚無自訂主題，上傳 Excel 後會顯示於此</p>';
+                return;
+            }
+            list.innerHTML = packs.map(p => `
+                <div class="flex items-center justify-between bg-slate-900/50 border border-slate-700/40 rounded-xl px-4 py-3 gap-3">
+                    <div class="min-w-0">
+                        <p class="text-sm font-bold text-slate-200 truncate">📎 ${escapeHtml(p.name)}</p>
+                        <p class="text-xs text-slate-500">${escapeHtml(p.fileName || '')} · ${(p.words || []).length} 字 · 已同步至學習主題</p>
+                    </div>
+                    <button onclick="deleteCustomPack('${p.id}')" class="shrink-0 text-xs text-rose-400 hover:text-rose-300 border border-rose-900/40 px-3 py-1.5 rounded-lg transition">刪除</button>
+                </div>
+            `).join('');
+        }
+
+        function downloadExcelTemplate() {
+            if (typeof XLSX === 'undefined') { alert('請稍後再試'); return; }
+            const ws = XLSX.utils.aoa_to_sheet([
+                ['English', '中文', '圖示(選填)'],
+                ['apple', '蘋果', '🍎'],
+                ['banana', '香蕉', '🍌'],
+                ['cat', '貓', '🐱']
+            ]);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, '單字');
+            XLSX.writeFile(wb, '單字範例.xlsx');
+        }
+
+        // ----------------------------------------------------
+        // 帳號驗證與學習資料管理
+        // ----------------------------------------------------
+        const TEACHER_ACCOUNT = { id: 'Ab100000', password: 'Ab100000', role: 'teacher', name: '老師' };
+        const PLATFORM_KEY = 'vocab300_platform';
+        const SESSION_KEY = 'vocab300_session';
+        const CLOUD_DB_KEY = 'vocab300_class_db';
+        const PLATFORM_DOC_ID_KEY = 'vocab300_platform_doc_id';
+        const MODE_NAMES = { flashcards: '單字學習卡', matching: '去圖示連連看', spelling: '拼字大挑戰', listening: '聽力大考驗', speaking: '口說發音特訓' };
+        const TINKR_BASE = 'https://tinkr.tech/sdb/';
+        const CLOUD_WRITE_INTERVAL = 11000; // Tinkr 寫入限速約 10 秒
+        // 可選：寫入固定班級資料庫名稱，全班免貼連結
+        const EMBEDDED_CLASS_DB = '';
+
+        let currentUser = null;
+        let loginTab = 'student';
+        let calendarView = { year: new Date().getFullYear(), month: new Date().getMonth() };
+        let cloudReady = false;
+        let cloudCache = {};
+        let cloudSaveTimer = null;
+        let lastCloudSync = null;
+        let lastCloudWrite = 0;
+        let openDetailStudentId = null;
+        let teacherPollTimer = null;
+        let cloudDbName = '';
+        let teacherLearningActive = false;
+
+        const LEARNING_SCREENS = ['menu-screen', 'flashcard-screen', 'matching-screen', 'spelling-screen', 'listening-screen', 'speaking-screen', 'notebook-screen', 'calendar-screen'];
+
+        function isTeacherLearningScreen(screenId) {
+            return LEARNING_SCREENS.includes(screenId);
+        }
+
+        function showTeacherPreviewBanner(show) {
+            const el = document.getElementById('teacher-preview-banner');
+            if (el) el.classList.toggle('hidden', !show);
+        }
+
+        function initTeacherLearningState() {
+            state.stars = 0;
+            state.progress = {};
+            state.notebook = [];
+            state.checkIns = [];
+            state.dailyLogs = {};
+            state.quizScores = {};
+            state.activeCategory = 'animals';
+            state.cardIndex = 0;
+            state.quizErrors = 0;
+        }
+
+        function enterTeacherLearning() {
+            teacherLearningActive = true;
+            document.getElementById('stars-badge').classList.remove('hidden');
+            renderCategorySelector();
+            saveState();
+            if (state.activeCategory) switchCategory(state.activeCategory);
+            showScreen('menu-screen');
+        }
+
+        function updateTeacherHeaderForScreen(screenId) {
+            if (!currentUser || currentUser.role !== 'teacher') return;
+            const isLearning = isTeacherLearningScreen(screenId);
+            if (screenId === 'teacher-dashboard-screen') {
+                teacherLearningActive = false;
+                document.getElementById('stars-badge').classList.add('hidden');
+                showTeacherPreviewBanner(false);
+            } else if (isLearning) {
+                teacherLearningActive = true;
+                document.getElementById('stars-badge').classList.remove('hidden');
+                showTeacherPreviewBanner(screenId === 'menu-screen');
+            }
+        }
+
+        function canPersistLearning() {
+            return currentUser && currentUser.role === 'student';
+        }
+
+        // ---------- 本地快取（離線備份） ----------
+        function getDefaultStudentAccounts() {
+            return [
+                { id: '1021029', name: 'Jim', password: '1021029' },
+                { id: '1031217', name: 'Sherry', password: '1031217' }
+            ];
+        }
+
+        function normalizeNameKey(name) {
+            return (name || '').trim().toLowerCase();
+        }
+
+        function escapeHtml(str) {
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        }
+
+        function ensurePlatformStructure(platform) {
+            if (!platform) platform = {};
+            if (!platform.students) platform.students = {};
+            if (!platform.customPacks) platform.customPacks = [];
+            if (!platform.studentAccounts || !platform.studentAccounts.length) {
+                platform.studentAccounts = getDefaultStudentAccounts();
+            }
+            platform.studentAccounts.forEach(acc => {
+                if (!platform.students[acc.id]) platform.students[acc.id] = createEmptyStudentData();
+            });
+            return platform;
+        }
+
+        function getStudentAccounts() {
+            return ensurePlatformStructure(getPlatformData()).studentAccounts;
+        }
+
+        function getStudentIds() {
+            return getStudentAccounts().map(a => a.id);
+        }
+
+        function getStudentAccountById(id) {
+            return getStudentAccounts().find(a => a.id === id);
+        }
+
+        function findStudentByName(name) {
+            const key = normalizeNameKey(name);
+            if (!key) return null;
+            return getStudentAccounts().find(a => normalizeNameKey(a.name) === key);
+        }
+
+        function getStudentDisplayName(id) {
+            const acc = getStudentAccountById(id);
+            return acc ? acc.name : id;
+        }
+
+        function saveStudentAccounts(accounts) {
+            const platform = ensurePlatformStructure(getPlatformData());
+            platform.studentAccounts = accounts;
+            accounts.forEach(acc => {
+                if (!platform.students[acc.id]) platform.students[acc.id] = createEmptyStudentData();
+            });
+            savePlatformData(platform);
+        }
+
+        function togglePwdVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.textContent = '🙈';
+            } else {
+                input.type = 'password';
+                btn.textContent = '👁️';
+            }
+        }
+
+        function isValidSessionUser(user) {
+            if (!user) return false;
+            if (user.role === 'teacher') return user.id === TEACHER_ACCOUNT.id;
+            return !!getStudentAccountById(user.id);
+        }
+
+        function getPlatformData() {
+            try {
+                return ensurePlatformStructure(JSON.parse(localStorage.getItem(PLATFORM_KEY) || '{}'));
+            } catch { return ensurePlatformStructure({}); }
+        }
+
+        function savePlatformData(data) {
+            data.updatedAt = new Date().toISOString();
+            localStorage.setItem(PLATFORM_KEY, JSON.stringify(data));
+        }
+
+        function createEmptyStudentData() {
+            return { stars: 0, progress: {}, notebook: [], checkIns: [], dailyLogs: {}, quizScores: [], updatedAt: '' };
+        }
+
+        function normalizeStudentData(data) {
+            const base = createEmptyStudentData();
+            if (!data) return base;
+            return {
+                stars: data.stars || 0,
+                progress: data.progress || {},
+                notebook: data.notebook || [],
+                checkIns: data.checkIns || [],
+                dailyLogs: data.dailyLogs || {},
+                quizScores: data.quizScores || [],
+                updatedAt: data.updatedAt || ''
+            };
+        }
+
+        function getLocalStudentData(studentId) {
+            const platform = getPlatformData();
+            return normalizeStudentData(platform.students[studentId]);
+        }
+
+        function saveLocalStudentData(studentId, data) {
+            const platform = getPlatformData();
+            platform.students[studentId] = normalizeStudentData(data);
+            savePlatformData(platform);
+        }
+
+        function getStudentData(studentId) {
+            if (cloudCache[studentId]) return cloudCache[studentId];
+            return getLocalStudentData(studentId);
+        }
+
+        function mergeStudentData(local, remote) {
+            const hasData = d => d && (d.stars > 0 || Object.keys(d.progress || {}).length > 0 || (d.notebook || []).length > 0);
+            if (!remote || (!remote.updatedAt && !hasData(remote))) return normalizeStudentData(local);
+            if (!local || (!local.updatedAt && !hasData(local))) return normalizeStudentData(remote);
+            if (!remote.updatedAt) return normalizeStudentData(local);
+            if (!local.updatedAt) return normalizeStudentData(remote);
+            return normalizeStudentData(remote.updatedAt >= local.updatedAt ? remote : local);
+        }
+
+        // ---------- 雲端同步（Tinkr，免 API 金鑰） ----------
+        function encodeClassCode(text) {
+            return btoa(unescape(encodeURIComponent(text)));
+        }
+
+        function decodeClassCode(code) {
+            return decodeURIComponent(escape(atob(code.trim())));
+        }
+
+        function resolveCloudDb() {
+            if (EMBEDDED_CLASS_DB) return EMBEDDED_CLASS_DB;
+            const params = new URLSearchParams(location.search);
+            const fromUrl = params.get('c');
+            if (fromUrl) {
+                try {
+                    const decoded = decodeClassCode(fromUrl);
+                    if (decoded.startsWith('tinkr:')) {
+                        const db = decoded.slice(6);
+                        localStorage.setItem(CLOUD_DB_KEY, db);
+                        return db;
+                    }
+                } catch {}
+            }
+            return localStorage.getItem(CLOUD_DB_KEY) || '';
+        }
+
+        function createEmptyPlatform() {
+            const studentAccounts = getDefaultStudentAccounts();
+            const students = {};
+            studentAccounts.forEach(acc => { students[acc.id] = createEmptyStudentData(); });
+            return { students, studentAccounts, customPacks: [], updatedAt: new Date().toISOString() };
+        }
+
+        function trimStudentDataForCloud(data) {
+            const d = normalizeStudentData(data);
+            if ((d.notebook || []).length > 12) d.notebook = d.notebook.slice(0, 12);
+            if ((d.quizScores || []).length > 12) d.quizScores = d.quizScores.slice(0, 12);
+            return d;
+        }
+
+        function trimPlatformForCloud(platform) {
+            const trimmed = {
+                type: 'platform',
+                students: {},
+                studentAccounts: platform.studentAccounts || getDefaultStudentAccounts(),
+                customPacks: (platform.customPacks || []).map(p => ({
+                    id: p.id,
+                    name: p.name,
+                    desc: p.desc,
+                    emoji: p.emoji,
+                    createdAt: p.createdAt,
+                    words: (p.words || []).map(w => ({ en: w.en, zh: w.zh, emoji: w.emoji || '📖' }))
+                })),
+                updatedAt: platform.updatedAt || new Date().toISOString()
+            };
+            getStudentIds().forEach(sid => {
+                trimmed.students[sid] = trimStudentDataForCloud(platform.students[sid] || createEmptyStudentData());
+            });
+            return trimmed;
+        }
+
+        async function fetchPlatformFromCloud() {
+            if (!cloudDbName) return null;
+            const res = await fetch(TINKR_BASE + cloudDbName, { cache: 'no-store' });
+            if (!res.ok) throw new Error('雲端讀取失敗 (' + res.status + ')');
+            const docs = await res.json();
+            if (!Array.isArray(docs)) throw new Error('雲端格式錯誤');
+
+            let platformDoc = docs.find(d => d.type === 'platform');
+            if (!platformDoc && docs.length > 0) platformDoc = docs[0];
+            if (platformDoc?.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, platformDoc.id);
+
+            if (!platformDoc?.students) return createEmptyPlatform();
+
+            const platform = ensurePlatformStructure({
+                students: platformDoc.students || {},
+                studentAccounts: platformDoc.studentAccounts,
+                customPacks: platformDoc.customPacks,
+                updatedAt: platformDoc.updatedAt || ''
+            });
+            return platform;
+        }
+
+        async function savePlatformToCloud(platform) {
+            if (!cloudDbName) return;
+            const now = Date.now();
+            if (now - lastCloudWrite < CLOUD_WRITE_INTERVAL) {
+                const wait = CLOUD_WRITE_INTERVAL - (now - lastCloudWrite);
+                await new Promise(r => setTimeout(r, wait));
+            }
+            const payload = trimPlatformForCloud(platform);
+            payload.updatedAt = new Date().toISOString();
+
+            let docId = localStorage.getItem(PLATFORM_DOC_ID_KEY);
+            if (docId) {
+                const res = await fetch(`${TINKR_BASE}${cloudDbName}/${docId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (res.status === 404) {
+                    localStorage.removeItem(PLATFORM_DOC_ID_KEY);
+                } else if (res.ok) {
+                    lastCloudWrite = Date.now();
+                    lastCloudSync = new Date();
+                    return;
+                } else {
+                    throw new Error('雲端寫入失敗 (' + res.status + ')');
+                }
+            }
+
+            const res = await fetch(TINKR_BASE + cloudDbName, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!res.ok) throw new Error('雲端寫入失敗 (' + res.status + ')');
+            const doc = await res.json();
+            if (doc.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, doc.id);
+            lastCloudWrite = Date.now();
+            lastCloudSync = new Date();
+        }
+
+        async function bootstrapClassCloud() {
+            const dbName = 'vocab300_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+            const platform = createEmptyPlatform();
+            const initDoc = { type: 'platform', ...platform };
+
+            const res = await fetch(TINKR_BASE + dbName, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(initDoc)
+            });
+            if (!res.ok) {
+                const detail = await res.text().catch(() => '');
+                throw new Error('無法建立班級雲端空間 (' + res.status + ')' + (detail ? ': ' + detail.slice(0, 80) : ''));
+            }
+            const doc = await res.json();
+            localStorage.setItem(CLOUD_DB_KEY, dbName);
+            if (doc.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, doc.id);
+            cloudDbName = dbName;
+            cloudReady = true;
+            lastCloudWrite = Date.now();
+            savePlatformData(platform);
+            showClassShareModal(dbName);
+            return dbName;
+        }
+
+        function getClassShareUrl(dbName) {
+            const base = location.href.split('?')[0].split('#')[0];
+            return base + '?c=' + encodeClassCode('tinkr:' + dbName);
+        }
+
+        function showClassShareModal(dbName) {
+            document.getElementById('class-share-url').value = getClassShareUrl(dbName);
+            document.getElementById('class-share-code').value = encodeClassCode('tinkr:' + dbName);
+            document.getElementById('class-share-modal').classList.remove('hidden');
+        }
+
+        function closeClassShareModal() {
+            document.getElementById('class-share-modal').classList.add('hidden');
+        }
+
+        function copyClassShareUrl() {
+            navigator.clipboard.writeText(document.getElementById('class-share-url').value);
+        }
+
+        function copyClassShareCode() {
+            navigator.clipboard.writeText(document.getElementById('class-share-code').value);
+        }
+
+        async function applyManualSyncCode() {
+            const code = document.getElementById('manual-sync-code').value.trim();
+            if (!code) return;
+            try {
+                const decoded = decodeClassCode(code);
+                if (!decoded.startsWith('tinkr:')) throw new Error('格式錯誤');
+                const db = decoded.slice(6);
+                localStorage.setItem(CLOUD_DB_KEY, db);
+                cloudDbName = db;
+                await initCloud();
+                updateCloudReadyHint();
+                document.getElementById('login-error').className = 'text-emerald-400 text-sm text-center bg-emerald-950/30 border border-emerald-900/40 px-3 py-2 rounded-xl';
+                document.getElementById('login-error').innerText = '✅ 同步碼已套用，請登入';
+                document.getElementById('login-error').classList.remove('hidden');
+            } catch {
+                document.getElementById('login-error').innerText = '同步碼無效，請向老師確認';
+                document.getElementById('login-error').className = 'text-rose-400 text-sm text-center bg-rose-950/30 border border-rose-900/40 px-3 py-2 rounded-xl';
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+
+        function updateCloudReadyHint() {
+            const el = document.getElementById('cloud-ready-hint');
+            if (cloudDbName) el.classList.remove('hidden');
+            else el.classList.add('hidden');
+        }
+
+        async function initCloud() {
+            cloudDbName = resolveCloudDb();
+            if (!cloudDbName) {
+                cloudReady = false;
+                updateSyncStatus('offline');
+                updateCloudReadyHint();
+                return false;
+            }
+            try {
+                updateSyncStatus('syncing');
+                const remote = await fetchPlatformFromCloud();
+                const local = getPlatformData();
+                const merged = mergePlatformData(local, remote);
+                savePlatformData(merged);
+                rebuildRuntimeVocabulary();
+                getStudentIds().forEach(sid => { cloudCache[sid] = merged.students[sid]; });
+                cloudReady = true;
+                lastCloudSync = new Date();
+                updateSyncStatus('synced');
+                updateCloudReadyHint();
+                return true;
+            } catch (e) {
+                console.error('雲端連線失敗:', e);
+                cloudReady = false;
+                updateSyncStatus('error');
+                return false;
+            }
+        }
+
+        function mergeCustomPacks(localPacks, remotePacks) {
+            const map = new Map();
+            (localPacks || []).forEach(p => map.set(p.id, p));
+            (remotePacks || []).forEach(p => {
+                const existing = map.get(p.id);
+                if (!existing || (p.createdAt || '') >= (existing.createdAt || '')) map.set(p.id, p);
+            });
+            return Array.from(map.values());
+        }
+
+        function mergePlatformData(local, remote) {
+            if (!remote) return ensurePlatformStructure(local);
+            local = ensurePlatformStructure(local);
+            remote = ensurePlatformStructure(remote);
+            const useRemote = remote.updatedAt >= (local.updatedAt || '');
+            const baseAccounts = (useRemote ? remote.studentAccounts : local.studentAccounts) || getDefaultStudentAccounts();
+            const extraAccounts = (useRemote ? local.studentAccounts : remote.studentAccounts) || [];
+            const accountMap = new Map();
+            baseAccounts.forEach(a => accountMap.set(a.id, { ...a }));
+            extraAccounts.forEach(a => { if (!accountMap.has(a.id)) accountMap.set(a.id, { ...a }); });
+            const mergedAccounts = Array.from(accountMap.values());
+            const merged = {
+                students: {},
+                studentAccounts: mergedAccounts,
+                customPacks: mergeCustomPacks(local.customPacks, remote.customPacks),
+                updatedAt: useRemote ? remote.updatedAt : local.updatedAt
+            };
+            mergedAccounts.forEach(acc => {
+                merged.students[acc.id] = mergeStudentData(
+                    normalizeStudentData(local.students?.[acc.id]),
+                    normalizeStudentData(remote.students?.[acc.id])
+                );
+            });
+            return merged;
+        }
+
+        async function ensureClassCloud(forTeacher) {
+            cloudDbName = resolveCloudDb();
+            if (cloudDbName) return await initCloud();
+            if (!forTeacher) return false;
+            await bootstrapClassCloud();
+            return true;
+        }
+
+        async function flushCloudWrite() {
+            if (!currentUser || currentUser.role !== 'student') return;
+            if (!cloudReady || !cloudDbName) { updateSyncStatus('offline'); return; }
+            try {
+                updateSyncStatus('syncing');
+                const platform = getPlatformData();
+                await savePlatformToCloud(platform);
+                updateSyncStatus('synced');
+            } catch (e) {
+                console.error('雲端儲存失敗:', e);
+                updateSyncStatus('error');
+            }
+        }
+
+        async function pushStudentToCloud(studentId, data) {
+            const payload = normalizeStudentData({ ...data, updatedAt: new Date().toISOString() });
+            cloudCache[studentId] = payload;
+            const platform = getPlatformData();
+            platform.students[studentId] = payload;
+            savePlatformData(platform);
+            clearTimeout(cloudSaveTimer);
+            cloudSaveTimer = setTimeout(flushCloudWrite, CLOUD_WRITE_INTERVAL);
+        }
+
+        async function prefetchAllStudents() {
+            if (cloudReady && cloudDbName) {
+                try {
+                    const remote = await fetchPlatformFromCloud();
+                    const local = getPlatformData();
+                    const merged = mergePlatformData(local, remote);
+                    savePlatformData(merged);
+                    rebuildRuntimeVocabulary();
+                    getStudentIds().forEach(sid => { cloudCache[sid] = merged.students[sid]; });
+                    if (merged.updatedAt > (remote.updatedAt || '')) {
+                        await savePlatformToCloud(merged);
+                    }
+                    lastCloudSync = new Date();
+                    return;
+                } catch (e) {
+                    console.error('雲端同步失敗:', e);
+                }
+            }
+            getStudentIds().forEach(sid => { cloudCache[sid] = getLocalStudentData(sid); });
+        }
+
+        function stopTeacherCloudWatch() {
+            if (teacherPollTimer) { clearInterval(teacherPollTimer); teacherPollTimer = null; }
+        }
+
+        function startTeacherCloudWatch() {
+            stopTeacherCloudWatch();
+            if (!cloudReady) return;
+            teacherPollTimer = setInterval(async () => {
+                if (currentUser?.role !== 'teacher') return;
+                await prefetchAllStudents();
+                renderTeacherDashboard();
+                if (openDetailStudentId) showTeacherDetail(openDetailStudentId);
+            }, 15000);
+        }
+
+        async function refreshTeacherDashboard() {
+            showCloudLoading(true);
+            try {
+                await initCloud();
+                await prefetchAllStudents();
+                renderTeacherDashboard();
+            } finally {
+                showCloudLoading(false);
+            }
+        }
+
+        function updateSyncStatus(status) {
+            const el = document.getElementById('sync-status');
+            if (!el) return;
+            el.classList.remove('hidden');
+            const map = {
+                offline: { text: '⚠️ 僅本機', cls: 'bg-amber-950/60 border-amber-800 text-amber-400' },
+                syncing: { text: '☁️ 同步中', cls: 'bg-indigo-950/60 border-indigo-800 text-indigo-300 animate-pulse' },
+                synced:  { text: '☁️ 已同步', cls: 'bg-emerald-950/60 border-emerald-800 text-emerald-400' },
+                error:   { text: '❌ 同步失敗', cls: 'bg-rose-950/60 border-rose-800 text-rose-400' }
+            };
+            const s = map[status] || map.offline;
+            el.innerText = s.text;
+            el.className = `text-[10px] md:text-xs px-2 py-1 rounded-full font-bold border ${s.cls}`;
+        }
+
+        function showCloudLoading(show) {
+            document.getElementById('cloud-loading').classList.toggle('hidden', !show);
+        }
+
+        function getTodayStr() {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        }
+
+        function switchLoginTab(tab) {
+            loginTab = tab;
+            const isStudent = tab === 'student';
+            document.getElementById('login-tab-student').className = isStudent
+                ? 'flex-1 py-2.5 rounded-xl text-sm font-bold transition bg-indigo-600 text-white'
+                : 'flex-1 py-2.5 rounded-xl text-sm font-bold transition text-slate-400 hover:text-slate-200';
+            document.getElementById('login-tab-teacher').className = !isStudent
+                ? 'flex-1 py-2.5 rounded-xl text-sm font-bold transition bg-emerald-600 text-white'
+                : 'flex-1 py-2.5 rounded-xl text-sm font-bold transition text-slate-400 hover:text-slate-200';
+            document.getElementById('login-id-label').innerText = isStudent ? '英文姓名' : '老師帳號';
+            document.getElementById('login-id').placeholder = isStudent ? '請輸入英文姓名（如 Jim）' : '請輸入老師帳號';
+            document.getElementById('login-hint').innerText = isStudent
+                ? '請輸入英文姓名登入，大小寫不拘；需使用老師提供的班級連結'
+                : '老師首次登入會自動建立班級雲端，再分享連結給學生';
+            document.getElementById('login-error').classList.add('hidden');
+        }
+
+        async function attemptLogin() {
+            const idInput = document.getElementById('login-id').value.trim();
+            const pw = document.getElementById('login-password').value;
+            const errEl = document.getElementById('login-error');
+            errEl.className = 'text-rose-400 text-sm text-center bg-rose-950/30 border border-rose-900/40 px-3 py-2 rounded-xl';
+
+            if (loginTab === 'teacher') {
+                if (idInput !== TEACHER_ACCOUNT.id || pw !== TEACHER_ACCOUNT.password) {
+                    errEl.innerText = '老師帳號或密碼錯誤';
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+            } else {
+                if (!cloudDbName && !resolveCloudDb()) {
+                    errEl.innerText = '請使用老師提供的「班級專屬連結」開啟此頁面';
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+            }
+
+            showCloudLoading(true);
+            try {
+                const ok = await ensureClassCloud(loginTab === 'teacher');
+                if (!ok && loginTab === 'student') {
+                    errEl.innerText = '無法連接班級雲端，請確認已使用老師提供的連結';
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+                await initCloud();
+            } catch (e) {
+                errEl.innerText = '雲端連線失敗：' + e.message;
+                errEl.classList.remove('hidden');
+                return;
+            } finally {
+                showCloudLoading(false);
+            }
+
+            if (loginTab === 'student') {
+                const student = findStudentByName(idInput);
+                if (!student || student.password !== pw) {
+                    errEl.innerText = '姓名或密碼錯誤，請重新輸入';
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+                currentUser = { id: student.id, role: 'student', name: student.name };
+            } else {
+                currentUser = { ...TEACHER_ACCOUNT };
+            }
+
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify(currentUser));
+            await enterApp();
+        }
+
+        function logout() {
+            if (!confirm('確定要登出嗎？')) return;
+            stopTeacherCloudWatch();
+            currentUser = null;
+            sessionStorage.removeItem(SESSION_KEY);
+            document.getElementById('app-wrapper').classList.add('hidden');
+            document.getElementById('login-screen').classList.remove('hidden');
+            document.getElementById('login-id').value = '';
+            document.getElementById('login-password').value = '';
+            document.getElementById('login-error').classList.add('hidden');
+            openDetailStudentId = null;
+        }
+
+        async function enterApp() {
+            showCloudLoading(true);
+            try {
+                await initCloud();
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app-wrapper').classList.remove('hidden');
+                document.getElementById('user-badge').classList.remove('hidden');
+                document.getElementById('user-badge').innerText = currentUser.name;
+
+                if (currentUser.role === 'teacher') {
+                    document.getElementById('student-nav').classList.add('hidden');
+                    document.getElementById('teacher-nav').classList.remove('hidden');
+                    document.getElementById('stars-badge').classList.add('hidden');
+                    teacherLearningActive = false;
+                    initTeacherLearningState();
+                    renderCategorySelector();
+                    saveState();
+                    await prefetchAllStudents();
+                    startTeacherCloudWatch();
+                    renderTeacherDashboard();
+                    showScreen('teacher-dashboard-screen', true);
+                } else {
+                    document.getElementById('student-nav').classList.remove('hidden');
+                    document.getElementById('teacher-nav').classList.add('hidden');
+                    document.getElementById('stars-badge').classList.remove('hidden');
+                    await loadStudentState();
+                    renderCategorySelector();
+                    saveState();
+                    showScreen('menu-screen', true);
+                }
+            } finally {
+                showCloudLoading(false);
+            }
+        }
+
+        function goHome() {
+            if (currentUser && currentUser.role === 'teacher') {
+                if (state.currentScreen === 'menu-screen' || state.currentScreen === 'teacher-dashboard-screen') {
+                    showScreen('teacher-dashboard-screen');
+                } else if (isTeacherLearningScreen(state.currentScreen)) {
+                    showScreen('menu-screen');
+                } else {
+                    showScreen('teacher-dashboard-screen');
+                }
+            } else {
+                showScreen('menu-screen');
+            }
+        }
+
+        async function loadStudentState() {
+            updateSyncStatus('syncing');
+            await prefetchAllStudents();
+            const sd = getStudentData(currentUser.id);
+            state.stars = sd.stars || 0;
+            state.progress = sd.progress || {};
+            state.notebook = sd.notebook || [];
+            state.checkIns = sd.checkIns || [];
+            state.dailyLogs = sd.dailyLogs || {};
+            state.quizScores = sd.quizScores || [];
+            const oldStars = parseInt(localStorage.getItem('all_in_one_stars') || '0');
+            const oldProgress = localStorage.getItem('all_in_one_progress');
+            if (oldStars > 0 && state.stars === 0) {
+                state.stars = oldStars;
+                if (oldProgress) try { state.progress = JSON.parse(oldProgress); } catch {}
+                persistStudentState();
+            }
+            updateSyncStatus(cloudReady ? 'synced' : 'offline');
+        }
+
+        function persistStudentState() {
+            if (!canPersistLearning()) return;
+            const payload = {
+                stars: state.stars,
+                progress: state.progress,
+                notebook: state.notebook || [],
+                checkIns: state.checkIns || [],
+                dailyLogs: state.dailyLogs || {},
+                quizScores: state.quizScores || []
+            };
+            cloudCache[currentUser.id] = normalizeStudentData({ ...payload, updatedAt: new Date().toISOString() });
+            saveLocalStudentData(currentUser.id, cloudCache[currentUser.id]);
+            const platform = getPlatformData();
+            platform.students[currentUser.id] = cloudCache[currentUser.id];
+            savePlatformData(platform);
+            clearTimeout(cloudSaveTimer);
+            cloudSaveTimer = setTimeout(flushCloudWrite, CLOUD_WRITE_INTERVAL);
+        }
+
+        function recordCheckIn() {
+            if (!currentUser) return;
+            if (currentUser.role === 'teacher' && !teacherLearningActive) return;
+            const today = getTodayStr();
+            if (!state.checkIns) state.checkIns = [];
+            if (!state.checkIns.includes(today)) {
+                state.checkIns.push(today);
+                state.checkIns.sort();
+            }
+            if (!state.dailyLogs) state.dailyLogs = {};
+            if (!state.dailyLogs[today]) {
+                state.dailyLogs[today] = { quizzes: 0, starsEarned: 0, wordsLearned: 0, totalScore: 0 };
+            }
+            if (canPersistLearning()) persistStudentState();
+        }
+
+        function calcQuizScore(errors, totalQuestions) {
+            const penalty = Math.max(5, Math.floor(100 / Math.max(totalQuestions, 1)));
+            return Math.max(0, 100 - errors * penalty);
+        }
+
+        function recordQuizResult(mode, accuracy, starReward) {
+            if (!currentUser) return;
+            if (currentUser.role === 'teacher' && !teacherLearningActive) return;
+            recordCheckIn();
+            const today = getTodayStr();
+            const cat = getCategories().find(c => c.id === state.activeCategory);
+            const totalQ = state.shuffledRoundPool.length || (mode === 'matching' ? (state.matchingTarget || 8) : 10);
+            const errors = state.quizErrors || 0;
+            const quizScore = calcQuizScore(errors, totalQ);
+            const entry = {
+                date: today,
+                time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
+                category: cat ? cat.name : state.activeCategory,
+                mode: MODE_NAMES[mode] || mode,
+                score: quizScore,
+                errors,
+                accuracy,
+                stars: starReward,
+                summary: `在「${cat ? cat.name : ''}」完成${MODE_NAMES[mode] || mode}，得分 ${quizScore}/100，答錯 ${errors} 題，答對率 ${accuracy}%`
+            };
+            if (!state.notebook) state.notebook = [];
+            state.notebook.unshift(entry);
+            if (!state.quizScores) state.quizScores = [];
+            state.quizScores.unshift({ ...entry, modeKey: `${state.activeCategory}_${mode}` });
+            if (state.dailyLogs[today]) {
+                state.dailyLogs[today].quizzes++;
+                state.dailyLogs[today].starsEarned += starReward;
+                state.dailyLogs[today].totalScore = (state.dailyLogs[today].totalScore || 0) + quizScore;
+            }
+            if (canPersistLearning()) persistStudentState();
+        }
+
+        function calcStreak(checkIns) {
+            if (!checkIns || !checkIns.length) return 0;
+            const set = new Set(checkIns);
+            let streak = 0;
+            const d = new Date();
+            for (let i = 0; i < 365; i++) {
+                const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                if (set.has(key)) { streak++; d.setDate(d.getDate() - 1); }
+                else break;
+            }
+            return streak;
+        }
+
+        function renderNotebook() {
+            const list = document.getElementById('notebook-list');
+            const entries = state.notebook || [];
+            if (!entries.length) {
+                list.innerHTML = '<p class="text-slate-500 text-center py-8">尚無學習紀錄，開始冒險吧！</p>';
+                return;
+            }
+            list.innerHTML = entries.map(e => `
+                <div class="bg-slate-900/60 border border-slate-700/50 rounded-2xl p-4 space-y-1">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-indigo-400 font-bold">${e.date} ${e.time || ''}</span>
+                        <span class="text-sm font-black ${e.score >= 80 ? 'text-emerald-400' : e.score >= 60 ? 'text-amber-400' : 'text-rose-400'}">${e.score}/100</span>
+                    </div>
+                    <p class="text-sm text-slate-200 font-bold">${e.mode} · ${e.category}</p>
+                    <p class="text-xs text-slate-400">${e.summary}</p>
+                </div>
+            `).join('');
+        }
+
+        function renderCalendar() {
+            const year = calendarView.year;
+            const month = calendarView.month;
+            document.getElementById('cal-month-label').innerText = `${year}年${month + 1}月`;
+            const checkSet = new Set(state.checkIns || []);
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = getTodayStr();
+            const grid = document.getElementById('cal-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < firstDay; i++) {
+                grid.innerHTML += '<div></div>';
+            }
+            let monthCount = 0;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const marked = checkSet.has(key);
+                if (marked) monthCount++;
+                const isToday = key === today;
+                grid.innerHTML += `<div class="cal-day relative flex items-center justify-center rounded-xl border text-sm font-bold ${marked ? 'marked border-emerald-500/50 text-emerald-300' : 'border-slate-700/50 text-slate-400'} ${isToday ? 'ring-2 ring-indigo-500' : ''}">${d}</div>`;
+            }
+            document.getElementById('streak-count').innerText = calcStreak(state.checkIns);
+            document.getElementById('cal-month-checkins').innerText = `${monthCount} 天`;
+            document.getElementById('cal-total-checkins').innerText = `${(state.checkIns || []).length} 天`;
+        }
+
+        function changeCalendarMonth(delta) {
+            calendarView.month += delta;
+            if (calendarView.month > 11) { calendarView.month = 0; calendarView.year++; }
+            if (calendarView.month < 0) { calendarView.month = 11; calendarView.year--; }
+            renderCalendar();
+        }
+
+        function renderTeacherAccountsPanel() {
+            const list = document.getElementById('teacher-accounts-list');
+            if (!list) return;
+            list.innerHTML = getStudentAccounts().map(acc => `
+                <div class="bg-slate-900/50 border border-slate-700/40 rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-slate-500">帳號 ID：<span class="text-slate-400 font-mono">${escapeHtml(acc.id)}</span></span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs text-slate-500 font-bold mb-1 block">英文姓名</label>
+                            <input id="acc-name-${acc.id}" type="text" value="${escapeHtml(acc.name)}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div>
+                            <label class="text-xs text-slate-500 font-bold mb-1 block">密碼</label>
+                            <div class="relative">
+                                <input id="acc-pw-${acc.id}" type="password" value="${escapeHtml(acc.password)}" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 pr-10 text-sm text-slate-100 focus:outline-none focus:border-indigo-500">
+                                <button type="button" onclick="togglePwdVisibility('acc-pw-${acc.id}', this)" class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-lg transition" title="顯示/隱藏密碼">👁️</button>
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="saveStudentAccount('${acc.id}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition btn-bounce">儲存姓名與密碼</button>
+                </div>
+            `).join('');
+        }
+
+        async function saveStudentAccount(studentId) {
+            const nameEl = document.getElementById('acc-name-' + studentId);
+            const pwEl = document.getElementById('acc-pw-' + studentId);
+            if (!nameEl || !pwEl) return;
+            const name = nameEl.value.trim();
+            const password = pwEl.value;
+            if (!name || !password) {
+                alert('姓名與密碼不可空白');
+                return;
+            }
+            const duplicate = getStudentAccounts().find(a => a.id !== studentId && normalizeNameKey(a.name) === normalizeNameKey(name));
+            if (duplicate) {
+                alert('此姓名已被其他學生使用');
+                return;
+            }
+            const accounts = getStudentAccounts().map(a => a.id === studentId ? { ...a, name, password } : a);
+            saveStudentAccounts(accounts);
+            if (cloudReady && cloudDbName) {
+                try {
+                    await savePlatformToCloud(getPlatformData());
+                } catch (e) {
+                    alert('本機已儲存，但雲端同步失敗：' + e.message);
+                }
+            }
+            renderTeacherAccountsPanel();
+            renderTeacherDashboard();
+            alert('已更新「' + name + '」的帳號設定');
+        }
+
+        async function addNewStudent() {
+            const name = document.getElementById('new-student-name').value.trim();
+            const password = document.getElementById('new-student-password').value;
+            if (!name || !password) {
+                alert('請填寫姓名與密碼');
+                return;
+            }
+            if (findStudentByName(name)) {
+                alert('此姓名已存在，請使用不同姓名');
+                return;
+            }
+            const id = 'stu_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+            const accounts = [...getStudentAccounts(), { id, name, password }];
+            saveStudentAccounts(accounts);
+            const platform = getPlatformData();
+            platform.students[id] = createEmptyStudentData();
+            savePlatformData(platform);
+            if (cloudReady && cloudDbName) {
+                try {
+                    await savePlatformToCloud(platform);
+                } catch (e) {
+                    alert('學生已新增至本機，但雲端同步失敗：' + e.message);
+                }
+            }
+            document.getElementById('new-student-name').value = '';
+            document.getElementById('new-student-password').value = '';
+            renderTeacherAccountsPanel();
+            renderTeacherDashboard();
+            alert('已新增學生「' + name + '」');
+        }
+
+        function renderTeacherDashboard() {
+            renderTeacherAccountsPanel();
+            renderCustomPacksList();
+            const container = document.getElementById('teacher-student-cards');
+            const ids = getStudentIds();
+            const students = {};
+            ids.forEach(sid => { students[sid] = getStudentData(sid); });
+            const updatedText = lastCloudSync
+                ? `最後同步：${lastCloudSync.toLocaleString('zh-TW')}${cloudReady ? '（每 15 秒自動更新）' : ''}`
+                : '等待同步';
+            document.getElementById('dashboard-updated').innerText = updatedText;
+            if (!ids.length) {
+                container.innerHTML = '<p class="text-slate-500 text-center col-span-2 py-8">尚無學生，請於上方新增學生帳號</p>';
+                return;
+            }
+            container.innerHTML = ids.map(sid => {
+                const sd = students[sid] || createEmptyStudentData();
+                const displayName = getStudentDisplayName(sid);
+                const vocabAll = getVocabulary();
+                const unlocked = vocabAll.filter(w => (sd.progress[w.en] || 0) > 0).length;
+                const pct = Math.round((unlocked / vocabAll.length) * 100);
+                const today = getTodayStr();
+                const todayLog = sd.dailyLogs?.[today];
+                const streak = calcStreak(sd.checkIns || []);
+                const lastEntry = (sd.notebook || [])[0];
+                return `
+                <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-5 space-y-3 cursor-pointer hover:border-indigo-500/50 transition" onclick="showTeacherDetail('${sid}')">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-lg font-bold text-slate-100">🧑‍🎓 ${escapeHtml(displayName)}</h3>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="bg-slate-900/50 rounded-xl p-2 text-center"><span class="block text-xs text-slate-500">單字進度</span><span class="font-bold text-emerald-400">${pct}%</span></div>
+                        <div class="bg-slate-900/50 rounded-xl p-2 text-center"><span class="block text-xs text-slate-500">總星星</span><span class="font-bold text-amber-400">⭐ ${sd.stars || 0}</span></div>
+                        <div class="bg-slate-900/50 rounded-xl p-2 text-center"><span class="block text-xs text-slate-500">連續打卡</span><span class="font-bold text-rose-400">🔥 ${streak} 天</span></div>
+                        <div class="bg-slate-900/50 rounded-xl p-2 text-center"><span class="block text-xs text-slate-500">今日測驗</span><span class="font-bold text-indigo-400">${todayLog ? todayLog.quizzes + ' 次' : '尚未學習'}</span></div>
+                    </div>
+                    ${lastEntry ? `<p class="text-xs text-slate-400 truncate">最近：${lastEntry.summary}</p>` : '<p class="text-xs text-slate-500">尚無學習紀錄</p>'}
+                    <button class="w-full text-sm bg-indigo-600/80 hover:bg-indigo-500 text-white py-2 rounded-xl font-bold transition btn-bounce">查看詳細進度 →</button>
+                </div>`;
+            }).join('');
+        }
+
+        function showTeacherDetail(sid) {
+            openDetailStudentId = sid;
+            const sd = getStudentData(sid);
+            const panel = document.getElementById('teacher-detail-panel');
+            panel.classList.remove('hidden');
+            document.getElementById('detail-student-name').innerText = `🧑‍🎓 ${getStudentDisplayName(sid)}`;
+            const vocabAll = getVocabulary();
+            const unlocked = vocabAll.filter(w => (sd.progress[w.en] || 0) > 0).length;
+            const pct = Math.round((unlocked / vocabAll.length) * 100);
+            const avgScore = (sd.quizScores || []).length
+                ? Math.round((sd.quizScores || []).slice(0, 10).reduce((s, q) => s + q.score, 0) / Math.min(10, sd.quizScores.length))
+                : 0;
+            document.getElementById('detail-stats').innerHTML = `
+                <div class="bg-slate-900/50 rounded-xl p-3 text-center"><span class="text-xs text-slate-500">解鎖進度</span><p class="text-xl font-black text-emerald-400">${pct}%</p><p class="text-[10px] text-slate-500">${unlocked}/${vocabAll.length}</p></div>
+                <div class="bg-slate-900/50 rounded-xl p-3 text-center"><span class="text-xs text-slate-500">總星星</span><p class="text-xl font-black text-amber-400">⭐ ${sd.stars || 0}</p></div>
+                <div class="bg-slate-900/50 rounded-xl p-3 text-center"><span class="text-xs text-slate-500">連續打卡</span><p class="text-xl font-black text-rose-400">🔥 ${calcStreak(sd.checkIns || [])}</p></div>
+                <div class="bg-slate-900/50 rounded-xl p-3 text-center"><span class="text-xs text-slate-500">近10次均分</span><p class="text-xl font-black text-indigo-400">${avgScore}/100</p></div>`;
+            const now = new Date();
+            const year = now.getFullYear(), month = now.getMonth();
+            const checkSet = new Set(sd.checkIns || []);
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            let calHtml = '<div class="col-span-7 grid grid-cols-7 gap-1 text-[10px] text-slate-500 text-center mb-1"><span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span></div>';
+            for (let i = 0; i < firstDay; i++) calHtml += '<div></div>';
+            for (let d = 1; d <= daysInMonth; d++) {
+                const key = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const marked = checkSet.has(key);
+                calHtml += `<div class="relative text-center text-[10px] py-1 rounded ${marked ? 'bg-emerald-900/40 text-emerald-300 font-bold' : 'text-slate-600'}">${d}${marked ? '✓' : ''}</div>`;
+            }
+            document.getElementById('detail-cal-grid').innerHTML = calHtml;
+            const nb = sd.notebook || [];
+            document.getElementById('detail-notebook').innerHTML = nb.length ? nb.slice(0, 15).map(e => `
+                <div class="bg-slate-900/50 rounded-xl px-3 py-2 text-xs flex justify-between gap-2">
+                    <span class="text-slate-300 flex-1">${e.date} ${e.summary}</span>
+                    <span class="font-bold ${e.score >= 80 ? 'text-emerald-400' : 'text-amber-400'} shrink-0">${e.score}分</span>
+                </div>`).join('') : '<p class="text-slate-500 text-sm">尚無紀錄</p>';
+            const logs = Object.entries(sd.dailyLogs || {}).sort((a,b) => b[0].localeCompare(a[0])).slice(0, 14);
+            document.getElementById('detail-daily-logs').innerHTML = logs.length ? logs.map(([date, log]) => `
+                <div class="bg-slate-900/50 rounded-xl px-3 py-2 text-xs flex justify-between">
+                    <span class="text-slate-300">${date}</span>
+                    <span class="text-slate-400">測驗 ${log.quizzes} 次 · 均分 ${log.quizzes ? Math.round(log.totalScore / log.quizzes) : 0} · ⭐+${log.starsEarned || 0}</span>
+                </div>`).join('') : '<p class="text-slate-500 text-sm">尚無每日紀錄</p>';
+            panel.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function closeTeacherDetail() {
+            document.getElementById('teacher-detail-panel').classList.add('hidden');
+            openDetailStudentId = null;
+        }
+
+        // ----------------------------------------------------
+        // 全域遊戲狀態控制 (整合永久儲存)
+        // ----------------------------------------------------
+        let state = {
+            stars: 0,
+            progress: {},
+            notebook: [],
+            checkIns: [],
+            dailyLogs: {},
+            quizScores: [],
+            muted: false,
+            currentScreen: 'menu-screen',
+            activeCategory: 'animals',
+            currentMode: '',
+            cardIndex: 0,
+            shuffledRoundPool: [],
+            roundIndex: 0,
+            correctCount: 0,
+            errorsCount: 0,
+            quizErrors: 0
+        };
+
+        // ----------------------------------------------------
+        // 麥克風語音口說辨識特訓系統 (Web Speech API)
+        // ----------------------------------------------------
+        let recognition = null;
+        let isRecording = false;
+
+        function initSpeechRecognition() {
+            if (recognition) return;
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.lang = 'en-US';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+
+                recognition.onstart = () => {
+                    isRecording = true;
+                    document.getElementById('mic-btn').classList.add('pulse-mic-active', 'from-red-500', 'to-rose-600');
+                    document.getElementById('speech-status').innerText = "🔊 正在聆聽中，請大聲讀出單字...";
+                    document.getElementById('speech-instruction').innerText = "請開口大聲發音！";
+                };
+
+                recognition.onresult = (event) => {
+                    const resultText = event.results[0][0].transcript.toLowerCase().trim();
+                    const confidence = event.results[0][0].confidence;
+                    evaluatePronunciation(resultText, confidence);
+                };
+
+                recognition.onerror = (event) => {
+                    console.error("語音辨識錯誤:", event.error);
+                    stopMicUI();
+                    if (event.error === 'not-allowed') {
+                        document.getElementById('speech-status').innerText = "❌ 麥克風存取被拒。請點瀏覽器網址旁鎖頭開啟權限。";
+                    } else {
+                        document.getElementById('speech-status').innerText = "❌ 未偵測到發音。請再點擊重試。";
+                    }
+                };
+
+                recognition.onend = () => {
+                    stopMicUI();
+                };
+            } else {
+                document.getElementById('speech-status').innerText = "⚠️ 您的瀏覽器不支援發音辨識，請使用 Chrome 或 Safari 開啟。";
+                document.getElementById('mic-btn').classList.add('opacity-40');
+            }
+        }
+
+        function stopMicUI() {
+            isRecording = false;
+            document.getElementById('mic-btn').classList.remove('pulse-mic-active', 'from-red-500', 'to-rose-600');
+            document.getElementById('speech-instruction').innerText = "點擊麥克風，再次開口朗讀";
+        }
+
+        function toggleRecording() {
+            initSpeechRecognition();
+            if (!recognition) return;
+
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                playSound('click');
+                // 隱藏上一次的反饋
+                document.getElementById('speaking-feedback-area').classList.add('hidden');
+                document.getElementById('spoken-transcript').innerText = "偵聽中...";
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.log("辨識重啟異常:", e);
+                }
+            }
+        }
+
+        // 核心語音評測比較演算法
+        function evaluatePronunciation(spokenText, confidence) {
+            const targetWord = state.shuffledRoundPool[state.roundIndex].en.toLowerCase().replace(/[^a-z]/g, '');
+            const cleanSpoken = spokenText.replace(/[^a-z]/g, '');
+
+            document.getElementById('spoken-transcript').innerText = spokenText;
+            document.getElementById('speaking-feedback-area').classList.remove('hidden');
+
+            const scoreBadge = document.getElementById('speaking-score-badge');
+            const evalText = document.getElementById('speaking-eval-text');
+
+            // 計算精準度
+            let accuracy = 0;
+            if (cleanSpoken === targetWord) {
+                accuracy = 100;
+            } else if (targetWord.includes(cleanSpoken) || cleanSpoken.includes(targetWord)) {
+                accuracy = 75;
+            } else {
+                // 簡易距離相似度比對
+                const distance = LevenshteinDistance(cleanSpoken, targetWord);
+                const maxLength = Math.max(cleanSpoken.length, targetWord.length);
+                accuracy = Math.round(((maxLength - distance) / maxLength) * 100);
+            }
+
+            if (accuracy < 0) accuracy = 0;
+
+            scoreBadge.innerText = `語音匹配度: ${accuracy}%`;
+
+            if (accuracy >= 80) {
+                playSound('correct');
+                scoreBadge.className = "text-xs font-bold px-3 py-1 rounded-full text-white bg-emerald-500 shadow-sm inline-block";
+                evalText.innerText = "🌟 太棒了！發音非常標準，給你三顆星！";
+                evalText.className = "text-sm mt-1.5 font-bold text-emerald-400";
+                
+                // 獎勵星星
+                recordProgress(state.shuffledRoundPool[state.roundIndex].en, 3);
+                state.correctCount++;
+                document.getElementById('next-speaking-btn').classList.remove('hidden');
+            } else if (accuracy >= 50) {
+                playSound('correct');
+                scoreBadge.className = "text-xs font-bold px-3 py-1 rounded-full text-white bg-amber-500 shadow-sm inline-block";
+                evalText.innerText = "👍 讀得不錯！發音有對上，多聽標準音更棒！";
+                evalText.className = "text-sm mt-1.5 font-bold text-amber-400";
+                
+                recordProgress(state.shuffledRoundPool[state.roundIndex].en, 1);
+                state.correctCount++;
+                document.getElementById('next-speaking-btn').classList.remove('hidden');
+            } else {
+                playSound('wrong');
+                state.quizErrors++;
+                scoreBadge.className = "text-xs font-bold px-3 py-1 rounded-full text-white bg-rose-500 shadow-sm inline-block";
+                evalText.innerText = "❌ 聽起來不太像喔，可以點示範語音多練習幾遍！";
+                evalText.className = "text-sm mt-1.5 font-bold text-rose-400";
+                // 允許跳過或重試
+                document.getElementById('next-speaking-btn').classList.remove('hidden');
+            }
+        }
+
+        // Levenshtein 距離比對字串差距
+        function LevenshteinDistance(a, b) {
+            const matrix = [];
+            for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+            for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+            for (let i = 1; i <= b.length; i++) {
+                for (let j = 1; j <= a.length; j++) {
+                    if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j - 1] + 1, // 替代
+                            matrix[i][j - 1] + 1,     // 插入
+                            matrix[i - 1][j] + 1      // 刪除
+                        );
+                    }
+                }
+            }
+            return matrix[b.length][a.length];
+        }
+
+        // ----------------------------------------------------
+        // Web Audio API 合成互動音效
+        // ----------------------------------------------------
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (state.muted) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'correct') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.setValueAtTime(659.25, now + 0.1); // E5
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            } else if (type === 'wrong') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.linearRampToValueAtTime(100, now + 0.25);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                osc.start(now);
+                osc.stop(now + 0.25);
+            } else if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } else if (type === 'victory') {
+                const freqs = [523.25, 659.25, 783.99, 1046.50];
+                freqs.forEach((freq, idx) => {
+                    const singleOsc = audioCtx.createOscillator();
+                    const singleGain = audioCtx.createGain();
+                    singleOsc.connect(singleGain);
+                    singleGain.connect(audioCtx.destination);
+                    singleOsc.frequency.setValueAtTime(freq, now + idx * 0.1);
+                    singleGain.gain.setValueAtTime(0.1, now + idx * 0.1);
+                    singleGain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.1 + 0.4);
+                    singleOsc.start(now + idx * 0.1);
+                    singleOsc.stop(now + idx * 0.1 + 0.4);
+                });
+            }
+        }
+
+        // 標準美音 TTS
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 0.85;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function toggleMute() {
+            state.muted = !state.muted;
+            document.getElementById('mute-btn').innerText = state.muted ? '🔇' : '🔊';
+            playSound('click');
+        }
+
+        // ----------------------------------------------------
+        // 中央頁面流轉控制
+        // ----------------------------------------------------
+        function showScreen(screenId, silent) {
+            if (!silent) playSound('click');
+            
+            if (isRecording && recognition) {
+                recognition.stop();
+            }
+
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            document.getElementById(screenId).classList.remove('hidden');
+            state.currentScreen = screenId;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            updateTeacherHeaderForScreen(screenId);
+
+            if (screenId === 'notebook-screen') renderNotebook();
+            if (screenId === 'calendar-screen') renderCalendar();
+            if (screenId === 'teacher-dashboard-screen') renderTeacherDashboard();
+            if (screenId === 'menu-screen' && currentUser?.role === 'teacher' && teacherLearningActive) {
+                renderCategorySelector();
+                saveState();
+            }
+        }
+
+        function switchCategory(catId) {
+            playSound('click');
+            state.activeCategory = catId;
+            const cat = getCategories().find(c => c.id === catId);
+            
+            // 更新狀態看板
+            document.getElementById('active-cat-emoji').innerText = cat.emoji;
+            document.getElementById('active-cat-name').innerText = cat.name;
+            document.getElementById('active-cat-desc').innerText = cat.desc;
+
+            // 統計該主題獲得的星星
+            const vocab = getVocabulary().filter(v => v.catId === catId);
+            let catStars = 0;
+            vocab.forEach(w => {
+                catStars += (state.progress[w.en] || 0);
+            });
+            document.getElementById('active-cat-stars').innerText = `⭐ ${catStars}`;
+
+            // 顯示當前範疇面板
+            document.getElementById('active-panel').classList.remove('hidden');
+            
+            // 渲染當前範疇的單字牆
+            renderActiveCategoryProgressGrid(catId);
+            
+            // 平滑滾動到面板
+            document.getElementById('active-panel').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function quickStart() {
+            const cats = getCategories();
+            const randomCat = cats[Math.floor(Math.random() * cats.length)];
+            switchCategory(randomCat.id);
+        }
+
+        // ----------------------------------------------------
+        // 存儲與進度永久統計
+        // ----------------------------------------------------
+        function saveState() {
+            persistStudentState();
+            document.getElementById('global-stars').innerText = state.stars;
+            
+            const vocabAll = getVocabulary();
+            let unlockedCount = 0;
+            vocabAll.forEach(word => {
+                if ((state.progress[word.en] || 0) > 0) unlockedCount++;
+            });
+            const overallPercent = Math.round((unlockedCount / vocabAll.length) * 100);
+            document.getElementById('unlocked-overall-percent').innerText = `已解鎖學習進度: ${overallPercent}% (${unlockedCount}/${vocabAll.length})`;
+            document.getElementById('overall-progress-bar').style.width = `${overallPercent}%`;
+        }
+
+        function recordProgress(en, addStars = 1) {
+            const currentStars = state.progress[en] || 0;
+            if (addStars > currentStars) {
+                state.progress[en] = addStars;
+                state.stars += (addStars - currentStars);
+            }
+            saveState();
+        }
+
+        // ----------------------------------------------------
+        // UI 動態繪製與列表渲染
+        // ----------------------------------------------------
+        function renderCategorySelector() {
+            const grid = document.getElementById('category-grid');
+            grid.innerHTML = '';
+            getCategories().forEach(cat => {
+                const btn = document.createElement('button');
+                btn.className = "bg-slate-800/60 hover:bg-slate-850 border border-slate-750 p-4 rounded-2xl flex flex-col items-center justify-center transition duration-300 btn-bounce space-y-2";
+                btn.onclick = () => switchCategory(cat.id);
+                btn.innerHTML = `
+                    <span class="text-3xl select-none">${cat.emoji}</span>
+                    <span class="text-xs font-bold text-slate-100 text-center">${cat.name}</span>
+                    ${cat.custom ? '<span class="text-[9px] text-indigo-400 font-bold">老師上傳</span>' : ''}
+                `;
+                grid.appendChild(btn);
+            });
+        }
+
+        function renderActiveCategoryProgressGrid(catId) {
+            const grid = document.getElementById('active-progress-grid');
+            grid.innerHTML = '';
+            const vocab = getVocabulary().filter(v => v.catId === catId);
+
+            vocab.forEach(word => {
+                const count = state.progress[word.en] || 0;
+                const isMastered = count >= 3;
+                const borderClass = isMastered ? 'border-amber-500/50 bg-amber-950/20' : 'border-slate-750 bg-slate-900/40';
+
+                const card = document.createElement('button');
+                card.className = `border ${borderClass} p-2 rounded-xl flex flex-col items-center justify-center transition hover:scale-105 btn-bounce focus:outline-none`;
+                card.onclick = () => speak(word.en);
+                card.innerHTML = `
+                    <span class="text-2xl select-none mb-0.5">${word.emoji}</span>
+                    <span class="text-[11px] font-bold text-slate-200 lowercase truncate max-w-full text-center" title="${word.en}">${word.en}</span>
+                    <span class="text-[10px] text-slate-400 text-center truncate max-w-full">${word.zh}</span>
+                    <div class="flex space-x-0.5 mt-1">
+                        <span class="text-[9px] ${count >= 1 ? 'text-amber-400' : 'text-slate-700'}">★</span>
+                        <span class="text-[9px] ${count >= 2 ? 'text-amber-400' : 'text-slate-700'}">★</span>
+                        <span class="text-[9px] ${count >= 3 ? 'text-amber-400' : 'text-slate-700'}">★</span>
+                    </div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // ----------------------------------------------------
+        // 核心練習模式啟動分流
+        // ----------------------------------------------------
+        function startMode(mode) {
+            state.currentMode = mode;
+            state.quizErrors = 0;
+            state.correctCount = 0;
+            state.errorsCount = 0;
+            recordCheckIn();
+            const vocab = getVocabulary().filter(v => v.catId === state.activeCategory);
+
+            if (mode === 'flashcards') {
+                state.cardIndex = 0;
+                showScreen('flashcard-screen');
+                updateFlashcard();
+            } else if (mode === 'matching') {
+                showScreen('matching-screen');
+                initMatching();
+            } else if (mode === 'spelling') {
+                state.roundIndex = 0;
+                // 從主題隨機抽選 10 題
+                state.shuffledRoundPool = [...vocab].sort(() => 0.5 - Math.random()).slice(0, Math.min(vocab.length, 10));
+                document.getElementById('spelling-total-num').innerText = state.shuffledRoundPool.length;
+                showScreen('spelling-screen');
+                loadSpellingQuestion();
+            } else if (mode === 'listening') {
+                state.roundIndex = 0;
+                state.correctCount = 0;
+                state.shuffledRoundPool = [...vocab].sort(() => 0.5 - Math.random()).slice(0, Math.min(vocab.length, 10));
+                document.getElementById('listening-total-num').innerText = state.shuffledRoundPool.length;
+                showScreen('listening-screen');
+                loadListeningQuestion();
+            } else if (mode === 'speaking') {
+                state.roundIndex = 0;
+                state.correctCount = 0;
+                state.shuffledRoundPool = [...vocab].sort(() => 0.5 - Math.random()).slice(0, Math.min(vocab.length, 10));
+                document.getElementById('speaking-total-num').innerText = state.shuffledRoundPool.length;
+                showScreen('speaking-screen');
+                loadSpeakingQuestion();
+            }
+        }
+
+        // ----------------------------------------------------
+        // 模式一：單字學習卡邏輯
+        // ----------------------------------------------------
+        function updateFlashcard() {
+            const vocab = getVocabulary().filter(v => v.catId === state.activeCategory);
+            const word = vocab[state.cardIndex];
+            const isFlipped = document.getElementById('flashcard-inner').classList.contains('rotate-y-180');
+            
+            if (isFlipped) {
+                flipCard();
+                setTimeout(() => setCardContent(word, vocab.length), 250);
+            } else {
+                setCardContent(word, vocab.length);
+            }
+        }
+
+        function setCardContent(word, totalSize) {
+            document.getElementById('card-front-emoji').innerText = word.emoji;
+            document.getElementById('card-front-en').innerText = word.en;
+            document.getElementById('card-back-emoji').innerText = word.emoji;
+            document.getElementById('card-back-zh').innerText = word.zh;
+
+            const activeCatName = getCategories().find(c => c.id === state.activeCategory).name;
+            document.getElementById('card-front-cat-name').innerText = activeCatName;
+            document.getElementById('card-back-cat-name').innerText = activeCatName;
+
+            document.getElementById('card-progress-label').innerText = `單字卡 ${state.cardIndex + 1}/${totalSize}`;
+            speak(word.en);
+        }
+
+        function flipCard() {
+            playSound('click');
+            document.getElementById('flashcard-inner').classList.toggle('rotate-y-180');
+        }
+
+        function nextCard() {
+            const vocab = getVocabulary().filter(v => v.catId === state.activeCategory);
+            recordCheckIn();
+            if (state.cardIndex < vocab.length - 1) {
+                const currentWord = vocab[state.cardIndex];
+                recordProgress(currentWord.en, 1); // 讀過得1星
+                state.cardIndex++;
+                updateFlashcard();
+            } else {
+                triggerVictory("主題學習卡完讀！📚", "你已經將本主題單字全部瀏覽學習一遍囉！", 15, 100);
+            }
+        }
+
+        function prevCard() {
+            if (state.cardIndex > 0) {
+                state.cardIndex--;
+                updateFlashcard();
+            }
+        }
+
+        function speakCurrentWord() {
+            const vocab = getVocabulary().filter(v => v.catId === state.activeCategory);
+            speak(vocab[state.cardIndex].en);
+        }
+
+        // ----------------------------------------------------
+        // 模式二：連連看邏輯 (完全無圖示)
+        // ----------------------------------------------------
+        let matchingSelected = null;
+        let matchedPairsCount = 0;
+        let selectedElement = null;
+
+        function initMatching() {
+            matchedPairsCount = 0;
+            state.errorsCount = 0;
+            matchingSelected = null;
+            selectedElement = null;
+            
+            const vocab = getVocabulary().filter(v => v.catId === state.activeCategory);
+            const pairCount = Math.min(8, vocab.length);
+            state.matchingTarget = pairCount;
+
+            document.getElementById('matching-errors').innerText = state.errorsCount;
+            document.getElementById('matching-progress').innerText = `0/${pairCount}`;
+
+            const shuffledWords = [...vocab].sort(() => 0.5 - Math.random()).slice(0, pairCount);
+            state.shuffledRoundPool = shuffledWords;
+            
+            // 拆開成純小寫英文與中文，無圖標無 Emoji
+            const cards = [];
+            shuffledWords.forEach(word => {
+                cards.push({ id: word.id, type: 'en', value: word.en });
+                cards.push({ id: word.id, type: 'zh', value: word.zh });
+            });
+
+            cards.sort(() => 0.5 - Math.random());
+
+            const grid = document.getElementById('matching-grid');
+            grid.innerHTML = '';
+
+            cards.forEach(card => {
+                const cardEl = document.createElement('button');
+                cardEl.className = "bg-slate-800/60 border border-slate-700 h-24 rounded-2xl flex flex-col items-center justify-center p-2 font-bold transition hover:shadow-md hover:border-purple-500/70 btn-bounce focus:outline-none";
+                cardEl.dataset.id = card.id;
+                cardEl.dataset.type = card.type;
+                cardEl.dataset.value = card.value;
+
+                if (card.type === 'en') {
+                    cardEl.innerHTML = `<span class="text-indigo-300 tracking-wide lowercase text-sm md:text-base font-extrabold text-center break-words w-full">${card.value}</span>`;
+                } else {
+                    cardEl.innerHTML = `<span class="text-amber-300 text-sm md:text-base font-black text-center break-words w-full">${card.value}</span>`;
+                }
+
+                cardEl.onclick = () => selectMatchingCard(cardEl);
+                grid.appendChild(cardEl);
+            });
+        }
+
+        function selectMatchingCard(cardEl) {
+            playSound('click');
+
+            if (cardEl.classList.contains('bg-emerald-950/40') || cardEl.classList.contains('border-emerald-500')) return;
+
+            if (selectedElement === cardEl) {
+                cardEl.classList.remove('border-indigo-500', 'bg-indigo-950/20');
+                selectedElement = null;
+                matchingSelected = null;
+                return;
+            }
+
+            if (selectedElement) {
+                const prevCard = matchingSelected;
+                const prevEl = selectedElement;
+
+                if (prevCard.type !== cardEl.dataset.type && prevCard.id === cardEl.dataset.id) {
+                    // 成功
+                    playSound('correct');
+                    cardEl.classList.add('bg-emerald-950/40', 'border-emerald-500', 'text-emerald-300');
+                    prevEl.classList.add('bg-emerald-950/40', 'border-emerald-500', 'text-emerald-300');
+                    cardEl.classList.remove('border-indigo-500', 'bg-indigo-950/20');
+                    prevEl.classList.remove('border-indigo-500', 'bg-indigo-950/20');
+                    
+                    const matchedWord = getVocabulary().find(v => v.id === parseInt(prevCard.id));
+                    if (matchedWord) {
+                        speak(matchedWord.en);
+                        recordProgress(matchedWord.en, 2); // 連連看通關得2星
+                    }
+
+                    matchedPairsCount++;
+                    const target = state.matchingTarget || 8;
+                    document.getElementById('matching-progress').innerText = `${matchedPairsCount}/${target}`;
+
+                    selectedElement = null;
+                    matchingSelected = null;
+
+                    if (matchedPairsCount === target) {
+                        setTimeout(() => {
+                            const accuracy = Math.round((target / (target + state.errorsCount)) * 100);
+                            triggerVictory("完美連連看！🔗", "在完全無圖示干擾下配對成功，你太厲害了！", 25, accuracy);
+                        }, 600);
+                    }
+                } else {
+                    // 失敗
+                    playSound('wrong');
+                    state.errorsCount++;
+                    state.quizErrors++;
+                    document.getElementById('matching-errors').innerText = state.errorsCount;
+
+                    cardEl.classList.add('border-rose-500', 'bg-rose-950/20');
+                    prevEl.classList.add('border-rose-500', 'bg-rose-950/20');
+
+                    selectedElement = null;
+                    matchingSelected = null;
+
+                    setTimeout(() => {
+                        cardEl.classList.remove('border-rose-500', 'bg-rose-950/20', 'border-indigo-500', 'bg-indigo-950/20');
+                        prevEl.classList.remove('border-rose-500', 'bg-rose-950/20', 'border-indigo-500', 'bg-indigo-950/20');
+                    }, 500);
+                }
+            } else {
+                selectedElement = cardEl;
+                matchingSelected = {
+                    id: cardEl.dataset.id,
+                    type: cardEl.dataset.type,
+                    value: cardEl.dataset.value
+                };
+                cardEl.classList.add('border-indigo-500', 'bg-indigo-950/20');
+            }
+        }
+
+        // ----------------------------------------------------
+        // 模式三：拼字大挑戰邏輯
+        // ----------------------------------------------------
+        let userSpellingAnswer = [];
+        let currentSpellingWord = null;
+
+        function loadSpellingQuestion() {
+            currentSpellingWord = state.shuffledRoundPool[state.roundIndex];
+            userSpellingAnswer = [];
+            
+            document.getElementById('spelling-index-num').innerText = state.roundIndex + 1;
+            document.getElementById('spelling-emoji').innerText = currentSpellingWord.emoji;
+            document.getElementById('spelling-zh').innerText = currentSpellingWord.zh;
+
+            renderSpellingSlots();
+            renderSpellingPool();
+            speak(currentSpellingWord.en);
+        }
+
+        function renderSpellingSlots() {
+            const container = document.getElementById('spelling-answer-slots');
+            container.innerHTML = '';
+
+            // 處理小寫拼寫，自動過濾非字母字元如空格、括號、斜線作為 spacer 靜態展示
+            const rawWord = currentSpellingWord.en; 
+            let letterIndex = 0;
+
+            for (let i = 0; i < rawWord.length; i++) {
+                const char = rawWord[i];
+                if (char === ' ' || char === '-' || char === '/' || char === "'" || char === '(' || char === ')') {
+                    const spacer = document.createElement('div');
+                    spacer.className = "w-6 h-11 flex items-end justify-center text-2xl font-black text-slate-400 pb-2 select-none";
+                    spacer.innerText = char;
+                    container.appendChild(spacer);
+                } else {
+                    const slot = document.createElement('div');
+                    slot.className = "w-11 h-11 border border-slate-700 rounded-xl flex items-center justify-center text-lg font-bold text-slate-100 bg-slate-800/40 transition-all lowercase";
+                    
+                    const currentLetterObj = userSpellingAnswer[letterIndex];
+                    if (currentLetterObj) {
+                        slot.innerText = currentLetterObj.letter;
+                        slot.classList.remove('bg-slate-800/40', 'border-slate-700');
+                        slot.classList.add('bg-slate-900', 'border-amber-400', 'text-amber-300', 'shadow-md');
+                        
+                        const idxToRem = letterIndex; 
+                        slot.classList.add('cursor-pointer', 'hover:bg-rose-950/30', 'hover:border-rose-500');
+                        slot.onclick = () => removeLetterFromAnswer(idxToRem);
+                    }
+                    container.appendChild(slot);
+                    letterIndex++;
+                }
+            }
+        }
+
+        function renderSpellingPool() {
+            const container = document.getElementById('spelling-letter-pool');
+            container.innerHTML = '';
+
+            // 過濾非字母做成拼寫盤
+            const pureLetters = currentSpellingWord.en.replace(/[^a-z]/g, '').split('');
+            const letters = pureLetters.map((l, index) => ({
+                id: index,
+                letter: l,
+                used: false
+            }));
+
+            // 單字短時增添干擾
+            if (pureLetters.length <= 5) {
+                const alphabet = "abcdefghijklmnopqrstuvwxyz";
+                for (let i = 0; i < 3; i++) {
+                    const randomLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
+                    letters.push({ id: 'fake_' + i, letter: randomLetter, used: false });
+                }
+            }
+
+            letters.sort(() => 0.5 - Math.random());
+
+            letters.forEach(item => {
+                const btn = document.createElement('button');
+                btn.className = "w-12 h-12 bg-slate-800/40 border border-slate-700 rounded-xl font-bold text-lg text-slate-200 flex items-center justify-center hover:border-amber-400 hover:shadow transition btn-bounce lowercase";
+                btn.innerText = item.letter;
+                
+                const isUsed = userSpellingAnswer.some(ans => ans.id === item.id);
+                if (isUsed) {
+                    btn.classList.add('opacity-20', 'pointer-events-none', 'bg-slate-900');
+                }
+
+                btn.onclick = () => {
+                    const cleanTarget = currentSpellingWord.en.replace(/[^a-z]/g, '');
+                    if (userSpellingAnswer.length < cleanTarget.length) {
+                        playSound('click');
+                        userSpellingAnswer.push(item);
+                        renderSpellingSlots();
+                        renderSpellingPool();
+                    }
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function removeLetterFromAnswer(index) {
+            playSound('click');
+            userSpellingAnswer.splice(index, 1);
+            renderSpellingSlots();
+            renderSpellingPool();
+        }
+
+        function clearSpellingAnswer() {
+            playSound('click');
+            userSpellingAnswer = [];
+            renderSpellingSlots();
+            renderSpellingPool();
+        }
+
+        function speakSpellingWord() {
+            if (currentSpellingWord) speak(currentSpellingWord.en);
+        }
+
+        function checkSpellingAnswer() {
+            const cleanTarget = currentSpellingWord.en.replace(/[^a-z]/g, '');
+            const spellStr = userSpellingAnswer.map(item => item.letter).join('');
+            
+            if (spellStr === cleanTarget) {
+                playSound('correct');
+                recordProgress(currentSpellingWord.en, 3); // 拼字正確得滿星 3 星
+                
+                const slots = document.getElementById('spelling-answer-slots').children;
+                for (let slot of slots) {
+                    if (slot.classList.contains('border-amber-400') || slot.innerText !== '') {
+                        slot.classList.remove('border-amber-400', 'text-amber-300');
+                        slot.classList.add('bg-emerald-500', 'text-slate-950', 'border-emerald-500', 'font-black');
+                    }
+                }
+
+                setTimeout(() => {
+                    state.roundIndex++;
+                    if (state.roundIndex < state.shuffledRoundPool.length) {
+                        loadSpellingQuestion();
+                    } else {
+                        triggerVictory("拼寫大冒險通關！✏️", "神乎其技！10道高難度單字拼字，你順利全數解答！", 35, 100);
+                    }
+                }, 1000);
+            } else {
+                playSound('wrong');
+                state.quizErrors++;
+                const slots = document.getElementById('spelling-answer-slots').children;
+                for (let slot of slots) {
+                    if (slot.innerText !== '') {
+                        slot.classList.add('border-rose-500', 'text-rose-400', 'bg-rose-950/20');
+                    }
+                }
+                setTimeout(() => {
+                    for (let slot of slots) {
+                        slot.classList.remove('border-rose-500', 'text-rose-400', 'bg-rose-950/20');
+                    }
+                }, 800);
+            }
+        }
+
+        // ----------------------------------------------------
+        // 模式四：聽力大考驗邏輯
+        // ----------------------------------------------------
+        let currentListeningWord = null;
+
+        function loadListeningQuestion() {
+            currentListeningWord = state.shuffledRoundPool[state.roundIndex];
+            document.getElementById('listening-index-num').innerText = state.roundIndex + 1;
+
+            setTimeout(() => { playListeningAudio(); }, 300);
+
+            // 抓同主題混淆項
+            const vocab = getVocabulary().filter(v => v.catId === state.activeCategory);
+            const distractors = [...vocab]
+                .filter(word => word.id !== currentListeningWord.id)
+                .sort(() => 0.5 - Math.random())
+                .slice(0, 3);
+            
+            const options = [currentListeningWord, ...distractors].sort(() => 0.5 - Math.random());
+
+            const container = document.getElementById('listening-options');
+            container.innerHTML = '';
+
+            options.forEach(option => {
+                const btn = document.createElement('button');
+                btn.className = "bg-slate-800/40 border border-slate-700/50 hover:border-emerald-500 p-5 rounded-2xl flex items-center space-x-4 shadow-md transition text-left btn-bounce focus:outline-none";
+                btn.innerHTML = `
+                    <span class="text-3xl select-none bg-slate-800 w-14 h-14 rounded-full flex items-center justify-center border border-slate-700">${option.emoji}</span>
+                    <div class="flex-1">
+                        <span class="block text-slate-100 font-extrabold text-base md:text-lg">${option.zh}</span>
+                        <span class="text-indigo-200/40 text-xs tracking-wider lowercase font-semibold">? ? ?</span>
+                    </div>
+                `;
+                btn.onclick = () => checkListeningAnswer(option, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function playListeningAudio() {
+            if (currentListeningWord) speak(currentListeningWord.en);
+        }
+
+        function checkListeningAnswer(selectedOption, clickedBtn) {
+            document.querySelectorAll('#listening-options button').forEach(btn => btn.style.pointerEvents = 'none');
+
+            if (selectedOption.id === currentListeningWord.id) {
+                playSound('correct');
+                state.correctCount++;
+                clickedBtn.classList.remove('border-slate-700/50', 'hover:border-emerald-500');
+                clickedBtn.classList.add('border-emerald-500', 'bg-emerald-950/20', 'text-emerald-300');
+                
+                clickedBtn.querySelector('span.text-indigo-200\\/40').innerText = selectedOption.en;
+                clickedBtn.querySelector('span.text-indigo-200\\/40').className = "text-emerald-400 text-xs font-bold lowercase";
+
+                recordProgress(currentListeningWord.en, 2); 
+            } else {
+                playSound('wrong');
+                state.quizErrors++;
+                clickedBtn.classList.remove('border-slate-700/50', 'hover:border-emerald-500');
+                clickedBtn.classList.add('border-rose-500', 'bg-rose-950/20', 'text-rose-300');
+                
+                document.querySelectorAll('#listening-options button').forEach(btn => {
+                    if (btn.querySelector('span.block').innerText === currentListeningWord.zh) {
+                        btn.classList.add('border-emerald-500/50', 'bg-emerald-950/10');
+                        btn.querySelector('span.text-indigo-200\\/40').innerText = currentListeningWord.en;
+                        btn.querySelector('span.text-indigo-200\\/40').className = "text-emerald-400 text-xs font-bold lowercase";
+                    }
+                });
+            }
+
+            setTimeout(() => {
+                state.roundIndex++;
+                if (state.roundIndex < state.shuffledRoundPool.length) {
+                    loadListeningQuestion();
+                } else {
+                    const accuracy = Math.round((state.correctCount / state.shuffledRoundPool.length) * 100);
+                    triggerVictory("聽力訓練通關！🎧", `挑戰完成！你在10道發音對照中答對了 ${state.correctCount} 題。`, 25, accuracy);
+                }
+            }, 1500);
+        }
+
+        // ----------------------------------------------------
+        // 模式五：口說發音特訓邏輯
+        // ----------------------------------------------------
+        function loadSpeakingQuestion() {
+            const currentWord = state.shuffledRoundPool[state.roundIndex];
+            
+            document.getElementById('speaking-index-num').innerText = state.roundIndex + 1;
+            document.getElementById('speaking-emoji').innerText = currentWord.emoji;
+            document.getElementById('speaking-en').innerText = currentWord.en;
+            document.getElementById('speaking-zh').innerText = currentWord.zh;
+
+            // 重置反饋區域
+            document.getElementById('spoken-transcript').innerText = "... 尚未開口 ...";
+            document.getElementById('speaking-feedback-area').classList.add('hidden');
+            document.getElementById('next-speaking-btn').classList.add('hidden');
+
+            setTimeout(() => { playSpeakingSample(); }, 350);
+        }
+
+        function playSpeakingSample() {
+            const currentWord = state.shuffledRoundPool[state.roundIndex];
+            speak(currentWord.en);
+        }
+
+        function nextSpeakingQuestion() {
+            state.roundIndex++;
+            if (state.roundIndex < state.shuffledRoundPool.length) {
+                loadSpeakingQuestion();
+            } else {
+                const accuracy = Math.round((state.correctCount / state.shuffledRoundPool.length) * 100);
+                triggerVictory("口說發音大特訓通關！🎙️", `太神了！你在10道口說評測挑戰中，成功正確朗讀了 ${state.correctCount} 個單字！`, 40, accuracy);
+            }
+        }
+
+        // ----------------------------------------------------
+        // 勝利結算彈窗與彩帶 canvas
+        // ----------------------------------------------------
+        function triggerVictory(title, msg, starReward, accuracy) {
+            playSound('victory');
+            const totalQ = state.shuffledRoundPool.length || (state.currentMode === 'matching' ? 8 : 10);
+            const quizScore = calcQuizScore(state.quizErrors || 0, totalQ);
+
+            document.getElementById('success-title').innerText = title;
+            document.getElementById('success-message').innerText = msg;
+            document.getElementById('success-stars').innerText = `+${starReward}`;
+            document.getElementById('success-quiz-score').innerText = `${quizScore}/100`;
+            document.getElementById('success-accuracy').innerText = `${accuracy}%`;
+
+            state.stars += starReward;
+            recordQuizResult(state.currentMode, accuracy, starReward);
+            saveState();
+
+            const overlay = document.getElementById('success-overlay');
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                document.getElementById('success-card').classList.remove('scale-95');
+                document.getElementById('success-card').classList.add('scale-100');
+            }, 50);
+
+            startConfetti();
+        }
+
+        function closeSuccessOverlay() {
+            playSound('click');
+            document.getElementById('success-overlay').classList.add('hidden');
+            document.getElementById('success-card').classList.add('scale-95');
+            document.getElementById('success-card').classList.remove('scale-100');
+            stopConfetti();
+            goHome();
+            if (currentUser && (currentUser.role === 'student' || teacherLearningActive)) {
+                switchCategory(state.activeCategory);
+            }
+        }
+
+        function retryCurrentGame() {
+            closeSuccessOverlay();
+            startMode(state.currentMode);
+        }
+
+        // ----------------------------------------------------
+        // 絢麗彩帶煙火動畫
+        // ----------------------------------------------------
+        let confettiInterval = null;
+        let confettiCanvas = document.getElementById('confetti-canvas');
+        let ctx = confettiCanvas.getContext('2d');
+        let particles = [];
+
+        function resizeConfetti() {
+            confettiCanvas.width = window.innerWidth;
+            confettiCanvas.height = window.innerHeight;
+        }
+
+        function startConfetti() {
+            confettiCanvas.classList.remove('hidden');
+            window.addEventListener('resize', resizeConfetti);
+            resizeConfetti();
+            
+            particles = [];
+            for (let i = 0; i < 150; i++) {
+                particles.push({
+                    x: Math.random() * confettiCanvas.width,
+                    y: Math.random() * confettiCanvas.height - confettiCanvas.height,
+                    r: Math.random() * 6 + 4,
+                    d: Math.random() * confettiCanvas.height,
+                    color: `hsl(${Math.random() * 360}, 95%, 65%)`,
+                    tilt: Math.random() * 10 - 5,
+                    tiltAngleIncremental: Math.random() * 0.07 + 0.02,
+                    tiltAngle: 0
+                });
+            }
+
+            if (confettiInterval) cancelAnimationFrame(confettiInterval);
+            animateConfetti();
+        }
+
+        function drawConfetti() {
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+            particles.forEach((p, index) => {
+                p.tiltAngle += p.tiltAngleIncremental;
+                p.y += (Math.cos(p.d) + 3 + p.r / 2) / 2;
+                p.x += Math.sin(p.tiltAngle);
+                p.tilt = Math.sin(p.tiltAngle - index / 3) * 15;
+
+                ctx.beginPath();
+                ctx.lineWidth = p.r;
+                ctx.strokeStyle = p.color;
+                ctx.moveTo(p.x + p.tilt + p.r / 2, p.y);
+                ctx.lineTo(p.x + p.tilt, p.y + p.tilt + p.r / 2);
+                ctx.stroke();
+
+                if (p.y > confettiCanvas.height) {
+                    particles[index] = {
+                        ...p,
+                        x: Math.random() * confettiCanvas.width,
+                        y: -20,
+                        tilt: Math.random() * 10 - 5
+                    };
+                }
+            });
+        }
+
+        function animateConfetti() {
+            drawConfetti();
+            confettiInterval = requestAnimationFrame(animateConfetti);
+        }
+
+        function stopConfetti() {
+            confettiCanvas.classList.add('hidden');
+            if (confettiInterval) {
+                cancelAnimationFrame(confettiInterval);
+                confettiInterval = null;
+            }
+            ctx.clearRect(0, 0, confettiCanvas.width, confettiCanvas.height);
+        }
+
+        // ----------------------------------------------------
+        // 網頁載入初始化
+        // ----------------------------------------------------
+        window.onload = async function() {
+            rebuildRuntimeVocabulary();
+            cloudDbName = resolveCloudDb();
+            if (cloudDbName) await initCloud();
+            updateCloudReadyHint();
+            const saved = sessionStorage.getItem(SESSION_KEY);
+            if (saved) {
+                try {
+                    currentUser = JSON.parse(saved);
+                    if (isValidSessionUser(currentUser) && (cloudDbName || currentUser.role === 'teacher')) await enterApp();
+                    else { currentUser = null; sessionStorage.removeItem(SESSION_KEY); }
+                } catch { currentUser = null; }
+            }
+            if (!currentUser) switchLoginTab('student');
+
+            window.addEventListener('keydown', (e) => {
+                if (state.currentScreen === 'spelling-screen') {
+                    const key = e.key.toLowerCase();
+                    if (key === 'backspace' || key === 'delete') {
+                        if (userSpellingAnswer.length > 0) {
+                            removeLetterFromAnswer(userSpellingAnswer.length - 1);
+                        }
+                    } else if (key === 'enter') {
+                        checkSpellingAnswer();
+                    } else if (/^[a-z]$/.test(key)) {
+                        // 比對選字盤中符合，且未被壓扁變灰的氣泡
+                        const itemEl = Array.from(document.getElementById('spelling-letter-pool').children)
+                            .find(btn => btn.innerText.toLowerCase() === key && !btn.classList.contains('opacity-20'));
+                        
+                        if (itemEl) {
+                            itemEl.click();
+                        }
+                    }
+                }
+            });
+        };
+    </script>
+</body>
+</html>
