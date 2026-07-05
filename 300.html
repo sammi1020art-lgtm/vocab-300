@@ -94,7 +94,14 @@
             </div>
             <p class="text-center text-xs text-slate-500" id="login-hint">請輸入英文姓名登入，大小寫不拘（如 Jim、Sherry）</p>
             <p id="cloud-ready-hint" class="hidden text-center text-xs text-emerald-400 bg-emerald-950/30 border border-emerald-900/40 px-3 py-2 rounded-xl">☁️ 班級雲端已連線，可跨裝置同步</p>
-            <details class="text-left">
+            <details class="text-left" id="teacher-sync-details">
+                <summary class="text-[10px] text-slate-500 cursor-pointer text-center">老師：換裝置時貼上班級同步碼</summary>
+                <div class="flex gap-2 mt-2">
+                    <input id="teacher-sync-code" placeholder="貼上同步碼（與學生相同）" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300">
+                    <button onclick="applyTeacherSyncCode()" class="shrink-0 bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-xl text-xs font-bold transition">套用</button>
+                </div>
+            </details>
+            <details class="text-left" id="student-sync-details">
                 <summary class="text-[10px] text-slate-500 cursor-pointer text-center">學生：貼上班級同步碼（無法用連結時）</summary>
                 <div class="flex gap-2 mt-2">
                     <input id="manual-sync-code" placeholder="貼上老師給的同步碼" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-300">
@@ -542,6 +549,7 @@
             <div class="flex items-center justify-between flex-wrap gap-3">
                 <h2 class="text-2xl font-black text-slate-100 flex items-center"><span class="mr-2">📊</span> 學生學習管理後台</h2>
                 <div class="flex items-center gap-2">
+                    <button onclick="showCurrentClassShareLink()" class="text-xs bg-indigo-900/60 hover:bg-indigo-800/60 border border-indigo-700/50 text-indigo-300 px-3 py-1.5 rounded-full font-bold transition btn-bounce">🔗 班級連結</button>
                     <button onclick="refreshTeacherDashboard()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-full font-bold transition btn-bounce">🔄 重新整理</button>
                     <span class="text-xs bg-emerald-950/60 text-emerald-300 border border-emerald-800 px-3 py-1 rounded-full" id="dashboard-updated">資料即時更新</span>
                 </div>
@@ -1039,12 +1047,11 @@
         }
 
         async function persistCustomPacksToCloud() {
-            if (cloudReady && cloudDbName) {
-                try {
-                    await savePlatformToCloud(getPlatformData());
-                } catch (e) {
-                    console.error('自訂主題雲端同步失敗:', e);
-                }
+            if (!cloudDbName) return;
+            try {
+                await persistTeacherPlatformToCloud();
+            } catch (e) {
+                console.error('自訂主題雲端同步失敗:', e);
             }
         }
 
@@ -1406,6 +1413,120 @@
             return localStorage.getItem(CLOUD_DB_KEY) || '';
         }
 
+        function getTeacherCloudDbName() {
+            return 'vocab300_' + TEACHER_ACCOUNT.id.toLowerCase();
+        }
+
+        function findLatestPlatformDoc(docs) {
+            if (!Array.isArray(docs) || !docs.length) return null;
+            const candidates = docs.filter(d => d && (d.type === 'platform' || d.students));
+            if (!candidates.length) return null;
+            return candidates.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))[0];
+        }
+
+        function scorePlatformDoc(doc) {
+            if (!doc) return 0;
+            const students = Object.keys(doc.students || {}).length;
+            const accounts = (doc.studentAccounts || []).length;
+            const packs = (doc.customPacks || []).length;
+            return students * 3 + accounts * 2 + packs * 15;
+        }
+
+        async function probeCloudDb(dbName) {
+            try {
+                const res = await fetch(TINKR_BASE + dbName, { cache: 'no-store' });
+                if (!res.ok) return null;
+                const docs = await res.json();
+                const doc = findLatestPlatformDoc(docs);
+                if (!doc) return { dbName, doc: null, score: 0 };
+                return { dbName, doc, score: scorePlatformDoc(doc) };
+            } catch {
+                return null;
+            }
+        }
+
+        async function resolveBestTeacherCloudDb() {
+            const candidates = new Set();
+            const fromUrl = (() => {
+                const params = new URLSearchParams(location.search);
+                const fromUrl = params.get('c');
+                if (!fromUrl) return '';
+                try {
+                    const decoded = decodeClassCode(fromUrl);
+                    if (decoded.startsWith('tinkr:')) return decoded.slice(6);
+                } catch {}
+                return '';
+            })();
+            if (fromUrl) candidates.add(fromUrl);
+            const fromStore = localStorage.getItem(CLOUD_DB_KEY);
+            if (fromStore) candidates.add(fromStore);
+            candidates.add(getTeacherCloudDbName());
+
+            let best = null;
+            for (const db of candidates) {
+                const probe = await probeCloudDb(db);
+                if (!probe) continue;
+                if (!best || probe.score > best.score || (probe.score === best.score && (probe.doc?.updatedAt || '') > (best.doc?.updatedAt || ''))) {
+                    best = probe;
+                }
+            }
+            const chosen = best?.score > 0 ? best.dbName : getTeacherCloudDbName();
+            localStorage.setItem(CLOUD_DB_KEY, chosen);
+            if (best?.doc?.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, best.doc.id);
+            return chosen;
+        }
+
+        function isDefaultLocalPlatform(platform) {
+            platform = ensurePlatformStructure(platform);
+            const accounts = platform.studentAccounts || [];
+            const defaults = getDefaultStudentAccounts();
+            if (accounts.length !== defaults.length) return false;
+            const sameAccounts = accounts.every((a, i) => defaults[i] && a.id === defaults[i].id && a.name === defaults[i].name && a.password === defaults[i].password);
+            const noCustom = !(platform.customPacks || []).length;
+            const noProgress = Object.values(platform.students || {}).every(sd => {
+                const d = normalizeStudentData(sd);
+                return !d.stars && !Object.keys(d.progress || {}).length && !(d.notebook || []).length && !(d.checkIns || []).length;
+            });
+            return sameAccounts && noCustom && noProgress;
+        }
+
+        async function resolvePlatformDocIdFromCloud() {
+            if (!cloudDbName) return null;
+            const res = await fetch(TINKR_BASE + cloudDbName, { cache: 'no-store' });
+            if (!res.ok) return null;
+            const docs = await res.json();
+            const doc = findLatestPlatformDoc(docs);
+            if (doc?.id) {
+                localStorage.setItem(PLATFORM_DOC_ID_KEY, doc.id);
+                return doc.id;
+            }
+            return null;
+        }
+
+        async function persistTeacherPlatformToCloud() {
+            if (!cloudDbName) return;
+            const platform = getPlatformData();
+            platform.updatedAt = new Date().toISOString();
+            savePlatformData(platform);
+            await savePlatformToCloud(platform);
+            cloudReady = true;
+            lastCloudSync = new Date();
+        }
+
+        function showCurrentClassShareLink() {
+            if (!cloudDbName) {
+                alert('尚未連接班級雲端，請重新登入');
+                return;
+            }
+            showClassShareModal(cloudDbName);
+        }
+
+        async function applyTeacherSyncCode() {
+            const code = document.getElementById('teacher-sync-code').value.trim();
+            if (!code) return;
+            await applyManualSyncCode(code);
+        }
+
         function createEmptyPlatform() {
             const studentAccounts = getDefaultStudentAccounts();
             const students = {};
@@ -1448,8 +1569,7 @@
             const docs = await res.json();
             if (!Array.isArray(docs)) throw new Error('雲端格式錯誤');
 
-            let platformDoc = docs.find(d => d.type === 'platform');
-            if (!platformDoc && docs.length > 0) platformDoc = docs[0];
+            let platformDoc = findLatestPlatformDoc(docs);
             if (platformDoc?.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, platformDoc.id);
 
             if (!platformDoc?.students) return createEmptyPlatform();
@@ -1474,6 +1594,7 @@
             payload.updatedAt = new Date().toISOString();
 
             let docId = localStorage.getItem(PLATFORM_DOC_ID_KEY);
+            if (!docId) docId = await resolvePlatformDocIdFromCloud();
             if (docId) {
                 const res = await fetch(`${TINKR_BASE}${cloudDbName}/${docId}`, {
                     method: 'PATCH',
@@ -1503,8 +1624,8 @@
             lastCloudSync = new Date();
         }
 
-        async function bootstrapClassCloud() {
-            const dbName = 'vocab300_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+        async function bootstrapClassCloud(dbName, showShareModal = true) {
+            if (!dbName) dbName = getTeacherCloudDbName();
             const platform = createEmptyPlatform();
             const initDoc = { type: 'platform', ...platform };
 
@@ -1524,7 +1645,7 @@
             cloudReady = true;
             lastCloudWrite = Date.now();
             savePlatformData(platform);
-            showClassShareModal(dbName);
+            if (showShareModal) showClassShareModal(dbName);
             return dbName;
         }
 
@@ -1551,8 +1672,8 @@
             navigator.clipboard.writeText(document.getElementById('class-share-code').value);
         }
 
-        async function applyManualSyncCode() {
-            const code = document.getElementById('manual-sync-code').value.trim();
+        async function applyManualSyncCode(code) {
+            if (!code) code = document.getElementById('manual-sync-code').value.trim();
             if (!code) return;
             try {
                 const decoded = decodeClassCode(code);
@@ -1579,7 +1700,7 @@
         }
 
         async function initCloud() {
-            cloudDbName = resolveCloudDb();
+            if (!cloudDbName) cloudDbName = resolveCloudDb();
             if (!cloudDbName) {
                 cloudReady = false;
                 updateSyncStatus('offline');
@@ -1621,7 +1742,12 @@
             if (!remote) return ensurePlatformStructure(local);
             local = ensurePlatformStructure(local);
             remote = ensurePlatformStructure(remote);
-            const useRemote = remote.updatedAt >= (local.updatedAt || '');
+            const localDefault = isDefaultLocalPlatform(local);
+            const remoteDefault = isDefaultLocalPlatform(remote);
+            let useRemote;
+            if (localDefault && !remoteDefault) useRemote = true;
+            else if (!localDefault && remoteDefault) useRemote = false;
+            else useRemote = remote.updatedAt >= (local.updatedAt || '');
             const baseAccounts = (useRemote ? remote.studentAccounts : local.studentAccounts) || getDefaultStudentAccounts();
             const extraAccounts = (useRemote ? local.studentAccounts : remote.studentAccounts) || [];
             const accountMap = new Map();
@@ -1644,11 +1770,21 @@
         }
 
         async function ensureClassCloud(forTeacher) {
-            cloudDbName = resolveCloudDb();
-            if (cloudDbName) return await initCloud();
-            if (!forTeacher) return false;
-            await bootstrapClassCloud();
-            return true;
+            if (forTeacher) {
+                cloudDbName = await resolveBestTeacherCloudDb();
+            } else {
+                cloudDbName = resolveCloudDb();
+                if (!cloudDbName) return false;
+            }
+            const probe = await probeCloudDb(cloudDbName);
+            if (probe?.score > 0) {
+                return await initCloud();
+            }
+            if (forTeacher) {
+                await bootstrapClassCloud(cloudDbName, true);
+                return true;
+            }
+            return false;
         }
 
         async function flushCloudWrite() {
@@ -1759,7 +1895,9 @@
             document.getElementById('login-id').placeholder = isStudent ? '請輸入英文姓名（如 Jim）' : '請輸入老師帳號';
             document.getElementById('login-hint').innerText = isStudent
                 ? '請輸入英文姓名登入，大小寫不拘；需使用老師提供的班級連結'
-                : '老師首次登入會自動建立班級雲端，再分享連結給學生';
+                : '老師登入會自動連線班級雲端，跨裝置同步學生與自訂單字';
+            document.getElementById('teacher-sync-details').classList.toggle('hidden', isStudent);
+            document.getElementById('student-sync-details').classList.toggle('hidden', !isStudent);
             document.getElementById('login-error').classList.add('hidden');
         }
 
@@ -2078,9 +2216,9 @@
             }
             const accounts = getStudentAccounts().map(a => a.id === studentId ? { ...a, name, password } : a);
             saveStudentAccounts(accounts);
-            if (cloudReady && cloudDbName) {
+            if (cloudDbName) {
                 try {
-                    await savePlatformToCloud(getPlatformData());
+                    await persistTeacherPlatformToCloud();
                 } catch (e) {
                     alert('本機已儲存，但雲端同步失敗：' + e.message);
                 }
@@ -2107,9 +2245,9 @@
             const platform = getPlatformData();
             platform.students[id] = createEmptyStudentData();
             savePlatformData(platform);
-            if (cloudReady && cloudDbName) {
+            if (cloudDbName) {
                 try {
-                    await savePlatformToCloud(platform);
+                    await persistTeacherPlatformToCloud();
                 } catch (e) {
                     alert('學生已新增至本機，但雲端同步失敗：' + e.message);
                 }
