@@ -1373,9 +1373,14 @@
             const accounts = platform.studentAccounts || [];
             const validIds = new Set(accounts.map(a => a.id));
 
+            const matchAccountByLooseKey = (key) => {
+                const nk = normalizeNameKey(key);
+                return accounts.find(a => a.id === key || normalizeNameKey(a.id) === nk || normalizeNameKey(a.name) === nk);
+            };
+
             Object.keys(platform.students || {}).forEach(key => {
                 if (validIds.has(key)) return;
-                const acc = accounts.find(a => normalizeNameKey(a.name) === normalizeNameKey(key));
+                const acc = matchAccountByLooseKey(key);
                 if (acc) {
                     platform.students[acc.id] = mergeStudentData(
                         normalizeStudentData(platform.students[acc.id]),
@@ -1456,8 +1461,10 @@
         }
 
         function getStudentData(studentId) {
-            if (cloudCache[studentId]) return cloudCache[studentId];
-            return getLocalStudentData(studentId);
+            const local = getLocalStudentData(studentId);
+            const cached = cloudCache[studentId];
+            if (cached) return mergeStudentRecords(cached, local);
+            return local;
         }
 
         function mergeStudentRecords(a, b) {
@@ -1594,6 +1601,39 @@
             }
         }
 
+        async function resolveBestClassCloudDb() {
+            const candidates = new Set();
+            const params = new URLSearchParams(location.search);
+            const fromUrl = params.get('c');
+            if (fromUrl) {
+                try {
+                    const decoded = decodeClassCode(fromUrl);
+                    if (decoded.startsWith('tinkr:')) candidates.add(decoded.slice(6));
+                } catch {}
+            }
+            const fromStore = localStorage.getItem(CLOUD_DB_KEY);
+            if (fromStore) candidates.add(fromStore);
+            candidates.add(getTeacherCloudDbName());
+
+            let best = null;
+            for (const db of candidates) {
+                const probe = await probeCloudDb(db);
+                if (!probe) continue;
+                if (!best || probe.score > best.score || (probe.score === best.score && (probe.doc?.updatedAt || '') > (best.doc?.updatedAt || ''))) {
+                    best = probe;
+                }
+            }
+            if (best?.score > 0) {
+                localStorage.setItem(CLOUD_DB_KEY, best.dbName);
+                if (best.doc?.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, best.doc.id);
+                return best.dbName;
+            }
+            return fromStore || (fromUrl ? (() => { try {
+                const d = decodeClassCode(fromUrl);
+                return d.startsWith('tinkr:') ? d.slice(6) : '';
+            } catch { return ''; } })() : '') || '';
+        }
+
         async function resolveBestTeacherCloudDb() {
             const candidates = new Set();
             const fromUrl = (() => {
@@ -1723,12 +1763,12 @@
 
             if (!platformDoc?.students) return createEmptyPlatform();
 
-            const platform = ensurePlatformStructure({
+            const platform = repairPlatformStudentRecords(ensurePlatformStructure({
                 students: platformDoc.students || {},
                 studentAccounts: platformDoc.studentAccounts,
                 customPacks: platformDoc.customPacks,
                 updatedAt: platformDoc.updatedAt || ''
-            });
+            }));
             return platform;
         }
 
@@ -1894,9 +1934,9 @@
         }
 
         function mergePlatformData(local, remote) {
-            if (!remote) return ensurePlatformStructure(local);
-            local = ensurePlatformStructure(local);
-            remote = ensurePlatformStructure(remote);
+            if (!remote) return repairPlatformStudentRecords(ensurePlatformStructure(local));
+            local = repairPlatformStudentRecords(ensurePlatformStructure(local));
+            remote = repairPlatformStudentRecords(ensurePlatformStructure(remote));
             const localDefault = isDefaultLocalPlatform(local);
             const remoteDefault = isDefaultLocalPlatform(remote);
             let useRemote;
@@ -1921,14 +1961,14 @@
                     normalizeStudentData(remote.students?.[acc.id])
                 );
             });
-            return merged;
+            return repairPlatformStudentRecords(merged);
         }
 
         async function ensureClassCloud(forTeacher) {
             if (forTeacher) {
                 cloudDbName = await resolveBestTeacherCloudDb();
             } else {
-                cloudDbName = resolveCloudDb();
+                cloudDbName = await resolveBestClassCloudDb();
                 if (!cloudDbName) return false;
             }
             const probe = await probeCloudDb(cloudDbName);
@@ -1940,6 +1980,11 @@
                 return true;
             }
             return false;
+        }
+
+        async function flushCloudWriteNow() {
+            clearTimeout(cloudSaveTimer);
+            await flushCloudWrite();
         }
 
         async function flushCloudWrite() {
@@ -1975,7 +2020,9 @@
                     savePlatformData(merged);
                     rebuildRuntimeVocabulary();
                     getStudentIds().forEach(sid => { cloudCache[sid] = merged.students[sid]; });
-                    if (merged.updatedAt > (remote.updatedAt || '')) {
+                    const remoteUpdatedAt = remote?.updatedAt || '';
+                    const repaired = JSON.stringify(local.students || {}) !== JSON.stringify(merged.students || {});
+                    if (merged.updatedAt > remoteUpdatedAt || repaired) {
                         await savePlatformToCloud(merged);
                     }
                     lastCloudSync = new Date();
@@ -2069,7 +2116,8 @@
                     return;
                 }
             } else {
-                if (!cloudDbName && !resolveCloudDb()) {
+                const preCloud = resolveCloudDb() || getTeacherCloudDbName();
+                if (!preCloud && !new URLSearchParams(location.search).get('c')) {
                     errEl.innerText = '請使用老師提供的「班級專屬連結」開啟此頁面';
                     errEl.classList.remove('hidden');
                     return;
@@ -2225,8 +2273,13 @@
             savePlatformData(platform);
             state.notebook = [...(merged.notebook || [])];
             state.quizScores = [...(merged.quizScores || [])];
+            const hadNewNotebook = (merged.notebook || []).length > (existing.notebook || []).length;
             clearTimeout(cloudSaveTimer);
-            cloudSaveTimer = setTimeout(flushCloudWrite, CLOUD_WRITE_INTERVAL);
+            if (hadNewNotebook) {
+                flushCloudWriteNow().catch(e => console.error('即時雲端同步失敗:', e));
+            } else {
+                cloudSaveTimer = setTimeout(flushCloudWrite, CLOUD_WRITE_INTERVAL);
+            }
         }
 
         function recordCheckIn() {
