@@ -590,7 +590,10 @@
             <div id="teacher-detail-panel" class="hidden bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
                 <div class="flex items-center justify-between border-b border-slate-700/50 pb-4">
                     <h3 class="text-xl font-bold text-slate-100" id="detail-student-name">學生詳情</h3>
-                    <button onclick="closeTeacherDetail()" class="text-slate-400 hover:text-slate-200 text-sm font-bold">✕ 關閉</button>
+                    <div class="flex items-center gap-2">
+                        <button onclick="resetStudentProgress(openDetailStudentId)" class="text-xs text-rose-400 hover:text-rose-300 border border-rose-900/40 px-3 py-1.5 rounded-lg transition">清空紀錄</button>
+                        <button onclick="closeTeacherDetail()" class="text-slate-400 hover:text-slate-200 text-sm font-bold">✕ 關閉</button>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3" id="detail-stats"></div>
                 <div>
@@ -1298,7 +1301,8 @@
         function findStudentByName(name) {
             const key = normalizeNameKey(name);
             if (!key) return null;
-            return getStudentAccounts().find(a => normalizeNameKey(a.name) === key);
+            const matches = getStudentAccounts().filter(a => normalizeNameKey(a.name) === key);
+            return matches.length === 1 ? matches[0] : null;
         }
 
         function getStudentDisplayName(id) {
@@ -1335,8 +1339,8 @@
 
         function getPlatformData() {
             try {
-                return ensurePlatformStructure(JSON.parse(localStorage.getItem(PLATFORM_KEY) || '{}'));
-            } catch { return ensurePlatformStructure({}); }
+                return repairPlatformStudentRecords(ensurePlatformStructure(JSON.parse(localStorage.getItem(PLATFORM_KEY) || '{}')));
+            } catch { return repairPlatformStudentRecords(ensurePlatformStructure({})); }
         }
 
         function savePlatformData(data) {
@@ -1346,6 +1350,84 @@
 
         function createEmptyStudentData() {
             return { stars: 0, progress: {}, notebook: [], checkIns: [], dailyLogs: {}, quizScores: [], updatedAt: '' };
+        }
+
+        function studentHasLearningData(data) {
+            const d = normalizeStudentData(data);
+            return d.stars > 0 || Object.keys(d.progress || {}).length > 0 || (d.notebook || []).length > 0 || (d.checkIns || []).length > 0;
+        }
+
+        function studentDataSignature(data) {
+            const d = normalizeStudentData(data);
+            if (!studentHasLearningData(d)) return '';
+            return JSON.stringify({
+                stars: d.stars,
+                progress: d.progress,
+                notebook: (d.notebook || []).slice(0, 8),
+                checkIns: d.checkIns || []
+            });
+        }
+
+        function repairPlatformStudentRecords(platform) {
+            platform = ensurePlatformStructure(platform);
+            const accounts = platform.studentAccounts || [];
+            const validIds = new Set(accounts.map(a => a.id));
+
+            Object.keys(platform.students || {}).forEach(key => {
+                if (validIds.has(key)) return;
+                const acc = accounts.find(a => normalizeNameKey(a.name) === normalizeNameKey(key));
+                if (acc) {
+                    platform.students[acc.id] = mergeStudentData(
+                        normalizeStudentData(platform.students[acc.id]),
+                        normalizeStudentData(platform.students[key])
+                    );
+                }
+                delete platform.students[key];
+            });
+
+            accounts.forEach(acc => {
+                if (!platform.students[acc.id]) {
+                    platform.students[acc.id] = createEmptyStudentData();
+                }
+            });
+
+            const jimId = '1021029';
+            const sherryId = '1031217';
+            const jim = platform.students[jimId];
+            const sherry = platform.students[sherryId];
+            if (jim && sherry) {
+                const jimSig = studentDataSignature(jim);
+                const sherrySig = studentDataSignature(sherry);
+                if (jimSig && jimSig === sherrySig) {
+                    platform.students[sherryId] = createEmptyStudentData();
+                }
+            }
+            return platform;
+        }
+
+        function repairAndPersistPlatform() {
+            const platform = repairPlatformStudentRecords(getPlatformData());
+            const prev = localStorage.getItem(PLATFORM_KEY);
+            savePlatformData(platform);
+            return prev !== localStorage.getItem(PLATFORM_KEY);
+        }
+
+        function resetStudentSessionState() {
+            state.stars = 0;
+            state.progress = {};
+            state.notebook = [];
+            state.checkIns = [];
+            state.dailyLogs = {};
+            state.quizScores = [];
+            state.cardIndex = 0;
+            state.quizErrors = 0;
+            state.correctCount = 0;
+            state.errorsCount = 0;
+        }
+
+        function clearLegacyGlobalProgress() {
+            localStorage.removeItem('all_in_one_stars');
+            localStorage.removeItem('all_in_one_progress');
         }
 
         function normalizeStudentData(data) {
@@ -1711,7 +1793,10 @@
                 updateSyncStatus('syncing');
                 const remote = await fetchPlatformFromCloud();
                 const local = getPlatformData();
-                const merged = mergePlatformData(local, remote);
+                const raw = mergePlatformData(local, remote);
+                const merged = repairPlatformStudentRecords(raw);
+                const wasRepaired = JSON.stringify(raw.students || {}) !== JSON.stringify(merged.students || {});
+                merged.updatedAt = new Date().toISOString();
                 savePlatformData(merged);
                 rebuildRuntimeVocabulary();
                 getStudentIds().forEach(sid => { cloudCache[sid] = merged.students[sid]; });
@@ -1719,6 +1804,9 @@
                 lastCloudSync = new Date();
                 updateSyncStatus('synced');
                 updateCloudReadyHint();
+                if (wasRepaired) {
+                    try { await savePlatformToCloud(merged); } catch (e) { console.error('修復資料同步失敗:', e); }
+                }
                 return true;
             } catch (e) {
                 console.error('雲端連線失敗:', e);
@@ -1923,6 +2011,7 @@
 
             showCloudLoading(true);
             try {
+                cloudCache = {};
                 const ok = await ensureClassCloud(loginTab === 'teacher');
                 if (!ok && loginTab === 'student') {
                     errEl.innerText = '無法連接班級雲端，請確認已使用老師提供的連結';
@@ -1940,7 +2029,13 @@
 
             if (loginTab === 'student') {
                 const student = findStudentByName(idInput);
-                if (!student || student.password !== pw) {
+                if (!student) {
+                    const dup = getStudentAccounts().filter(a => normalizeNameKey(a.name) === normalizeNameKey(idInput));
+                    errEl.innerText = dup.length > 1 ? '有重複的學生姓名，請聯絡老師修正' : '姓名或密碼錯誤，請重新輸入';
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+                if (student.password !== pw) {
                     errEl.innerText = '姓名或密碼錯誤，請重新輸入';
                     errEl.classList.remove('hidden');
                     return;
@@ -1958,6 +2053,8 @@
             if (!confirm('確定要登出嗎？')) return;
             stopTeacherCloudWatch();
             currentUser = null;
+            cloudCache = {};
+            resetStudentSessionState();
             sessionStorage.removeItem(SESSION_KEY);
             document.getElementById('app-wrapper').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
@@ -2018,20 +2115,25 @@
 
         async function loadStudentState() {
             updateSyncStatus('syncing');
+            resetStudentSessionState();
             await prefetchAllStudents();
             const sd = getStudentData(currentUser.id);
             state.stars = sd.stars || 0;
-            state.progress = sd.progress || {};
-            state.notebook = sd.notebook || [];
-            state.checkIns = sd.checkIns || [];
-            state.dailyLogs = sd.dailyLogs || {};
-            state.quizScores = sd.quizScores || [];
+            state.progress = { ...(sd.progress || {}) };
+            state.notebook = [...(sd.notebook || [])];
+            state.checkIns = [...(sd.checkIns || [])];
+            state.dailyLogs = { ...(sd.dailyLogs || {}) };
+            state.quizScores = [...(sd.quizScores || [])];
+
             const oldStars = parseInt(localStorage.getItem('all_in_one_stars') || '0');
             const oldProgress = localStorage.getItem('all_in_one_progress');
-            if (oldStars > 0 && state.stars === 0) {
-                state.stars = oldStars;
-                if (oldProgress) try { state.progress = JSON.parse(oldProgress); } catch {}
-                persistStudentState();
+            if (oldStars > 0 || oldProgress) {
+                if (currentUser.id === '1021029' && !studentHasLearningData(sd)) {
+                    state.stars = oldStars;
+                    if (oldProgress) try { state.progress = JSON.parse(oldProgress); } catch {}
+                    persistStudentState();
+                }
+                clearLegacyGlobalProgress();
             }
             updateSyncStatus(cloudReady ? 'synced' : 'offline');
         }
@@ -2086,6 +2188,7 @@
             const errors = state.quizErrors || 0;
             const quizScore = calcQuizScore(errors, totalQ);
             const entry = {
+                studentId: currentUser.id,
                 date: today,
                 time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }),
                 category: cat ? cat.name : state.activeCategory,
@@ -2349,6 +2452,27 @@
         function closeTeacherDetail() {
             document.getElementById('teacher-detail-panel').classList.add('hidden');
             openDetailStudentId = null;
+        }
+
+        async function resetStudentProgress(studentId) {
+            if (!studentId) return;
+            const name = getStudentDisplayName(studentId);
+            if (!confirm(`確定清空「${name}」的所有學習紀錄？此操作無法復原。`)) return;
+            const platform = getPlatformData();
+            platform.students[studentId] = createEmptyStudentData();
+            platform.students[studentId].updatedAt = new Date().toISOString();
+            savePlatformData(platform);
+            cloudCache[studentId] = platform.students[studentId];
+            if (cloudDbName) {
+                try {
+                    await persistTeacherPlatformToCloud();
+                } catch (e) {
+                    alert('本機已清空，但雲端同步失敗：' + e.message);
+                }
+            }
+            renderTeacherDashboard();
+            showTeacherDetail(studentId);
+            alert(`已清空「${name}」的學習紀錄`);
         }
 
         // ----------------------------------------------------
