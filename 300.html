@@ -1192,8 +1192,8 @@
         const MODE_NAMES = { flashcards: '單字學習卡', matching: '去圖示連連看', spelling: '拼字大挑戰', listening: '聽力大考驗', speaking: '口說發音特訓' };
         const TINKR_BASE = 'https://tinkr.tech/sdb/';
         const CLOUD_WRITE_INTERVAL = 11000; // Tinkr 寫入限速約 10 秒
-        // 可選：寫入固定班級資料庫名稱，全班免貼連結
-        const EMBEDDED_CLASS_DB = '';
+        // 固定班級雲端庫，確保老師與 Jim/Sherry 讀寫同一資料庫
+        const EMBEDDED_CLASS_DB = 'vocab300_ab100000';
 
         let currentUser = null;
         let loginTab = 'student';
@@ -1554,24 +1554,35 @@
         }
 
         function resolveCloudDb() {
+            const db = resolveClassDbFromContext();
+            if (db) localStorage.setItem(CLOUD_DB_KEY, db);
+            return db;
+        }
+
+        function getTeacherCloudDbName() {
+            return 'vocab300_' + TEACHER_ACCOUNT.id.toLowerCase();
+        }
+
+        function resolveClassDbFromContext() {
             if (EMBEDDED_CLASS_DB) return EMBEDDED_CLASS_DB;
             const params = new URLSearchParams(location.search);
             const fromUrl = params.get('c');
             if (fromUrl) {
                 try {
                     const decoded = decodeClassCode(fromUrl);
-                    if (decoded.startsWith('tinkr:')) {
-                        const db = decoded.slice(6);
-                        localStorage.setItem(CLOUD_DB_KEY, db);
-                        return db;
-                    }
+                    if (decoded.startsWith('tinkr:')) return decoded.slice(6);
                 } catch {}
             }
-            return localStorage.getItem(CLOUD_DB_KEY) || '';
+            return getTeacherCloudDbName();
         }
 
-        function getTeacherCloudDbName() {
-            return 'vocab300_' + TEACHER_ACCOUNT.id.toLowerCase();
+        function pinClassCloudDb() {
+            const db = resolveClassDbFromContext();
+            if (db) {
+                cloudDbName = db;
+                localStorage.setItem(CLOUD_DB_KEY, db);
+            }
+            return db;
         }
 
         function findLatestPlatformDoc(docs) {
@@ -1611,67 +1622,11 @@
         }
 
         async function resolveBestClassCloudDb() {
-            const candidates = new Set();
-            const params = new URLSearchParams(location.search);
-            const fromUrl = params.get('c');
-            if (fromUrl) {
-                try {
-                    const decoded = decodeClassCode(fromUrl);
-                    if (decoded.startsWith('tinkr:')) candidates.add(decoded.slice(6));
-                } catch {}
-            }
-            const fromStore = localStorage.getItem(CLOUD_DB_KEY);
-            if (fromStore) candidates.add(fromStore);
-            candidates.add(getTeacherCloudDbName());
-
-            let best = null;
-            for (const db of candidates) {
-                const probe = await probeCloudDb(db);
-                if (!probe) continue;
-                if (!best || probe.score > best.score || (probe.score === best.score && (probe.doc?.updatedAt || '') > (best.doc?.updatedAt || ''))) {
-                    best = probe;
-                }
-            }
-            if (best?.score > 0) {
-                localStorage.setItem(CLOUD_DB_KEY, best.dbName);
-                if (best.doc?.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, best.doc.id);
-                return best.dbName;
-            }
-            return fromStore || (fromUrl ? (() => { try {
-                const d = decodeClassCode(fromUrl);
-                return d.startsWith('tinkr:') ? d.slice(6) : '';
-            } catch { return ''; } })() : '') || '';
+            return pinClassCloudDb();
         }
 
         async function resolveBestTeacherCloudDb() {
-            const candidates = new Set();
-            const fromUrl = (() => {
-                const params = new URLSearchParams(location.search);
-                const fromUrl = params.get('c');
-                if (!fromUrl) return '';
-                try {
-                    const decoded = decodeClassCode(fromUrl);
-                    if (decoded.startsWith('tinkr:')) return decoded.slice(6);
-                } catch {}
-                return '';
-            })();
-            if (fromUrl) candidates.add(fromUrl);
-            const fromStore = localStorage.getItem(CLOUD_DB_KEY);
-            if (fromStore) candidates.add(fromStore);
-            candidates.add(getTeacherCloudDbName());
-
-            let best = null;
-            for (const db of candidates) {
-                const probe = await probeCloudDb(db);
-                if (!probe) continue;
-                if (!best || probe.score > best.score || (probe.score === best.score && (probe.doc?.updatedAt || '') > (best.doc?.updatedAt || ''))) {
-                    best = probe;
-                }
-            }
-            const chosen = best?.score > 0 ? best.dbName : getTeacherCloudDbName();
-            localStorage.setItem(CLOUD_DB_KEY, chosen);
-            if (best?.doc?.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, best.doc.id);
-            return chosen;
+            return pinClassCloudDb();
         }
 
         function isDefaultLocalPlatform(platform) {
@@ -1853,8 +1808,23 @@
             lastCloudSync = new Date();
         }
 
+        async function syncStudentDocToCloudNow(studentId, data) {
+            if (!studentId || !cloudDbName) return false;
+            const sd = normalizeStudentData(data || getStudentData(studentId));
+            if (!studentHasLearningData(sd)) return false;
+            try {
+                await saveStudentDocToCloud(studentId, sd);
+                cloudReady = true;
+                lastCloudSync = new Date();
+                return true;
+            } catch (e) {
+                console.error('學生雲端上傳失敗:', e);
+                return false;
+            }
+        }
+
         async function hydrateStudentsFromCloud(ids) {
-            if (!cloudReady || !cloudDbName) {
+            if (!cloudDbName) {
                 const out = {};
                 ids.forEach(sid => { out[sid] = getStudentData(sid); });
                 return out;
@@ -2088,21 +2058,24 @@
         }
 
         async function ensureClassCloud(forTeacher) {
+            cloudDbName = pinClassCloudDb();
+            if (!cloudDbName) return false;
+            const ok = await initCloud();
             if (forTeacher) {
-                cloudDbName = await resolveBestTeacherCloudDb();
-            } else {
-                cloudDbName = await resolveBestClassCloudDb();
-                if (!cloudDbName) return false;
-            }
-            const probe = await probeCloudDb(cloudDbName);
-            if (probe?.score > 0) {
-                return await initCloud();
-            }
-            if (forTeacher) {
-                await bootstrapClassCloud(cloudDbName, true);
+                try {
+                    const docs = await fetchAllCloudDocs();
+                    if (!findLatestPlatformDoc(docs)) {
+                        await bootstrapClassCloud(cloudDbName, true);
+                    }
+                } catch (e) {
+                    console.error('老師雲端初始化失敗:', e);
+                    if (!ok) {
+                        try { await bootstrapClassCloud(cloudDbName, true); } catch {}
+                    }
+                }
                 return true;
             }
-            return false;
+            return true;
         }
 
         async function flushCloudWriteNow() {
@@ -2243,7 +2216,7 @@
                     return;
                 }
             } else {
-                const preCloud = resolveCloudDb() || getTeacherCloudDbName();
+                const preCloud = resolveClassDbFromContext();
                 if (!preCloud && !new URLSearchParams(location.search).get('c')) {
                     errEl.innerText = '請使用老師提供的「班級專屬連結」開啟此頁面';
                     errEl.classList.remove('hidden');
@@ -2378,7 +2351,12 @@
                 }
                 clearLegacyGlobalProgress();
             }
-            updateSyncStatus(cloudReady ? 'synced' : 'offline');
+            if (cloudDbName && studentHasLearningData(sd)) {
+                const uploaded = await syncStudentDocToCloudNow(currentUser.id, getStudentData(currentUser.id));
+                updateSyncStatus(uploaded ? 'synced' : 'error');
+            } else {
+                updateSyncStatus(cloudDbName ? (cloudReady ? 'synced' : 'offline') : 'offline');
+            }
         }
 
         function persistStudentState() {
@@ -2633,7 +2611,7 @@
             const container = document.getElementById('teacher-student-cards');
             const ids = getStudentIds();
             const students = studentsMap || {};
-            if (!studentsMap) ids.forEach(sid => { students[sid] = getStudentData(sid); });
+            if (!studentsMap) ids.forEach(sid => { students[sid] = cloudCache[sid] || getStudentData(sid); });
             const updatedText = lastCloudSync
                 ? `最後同步：${lastCloudSync.toLocaleString('zh-TW')}${cloudReady ? '（每 15 秒自動更新）' : ''}`
                 : '等待同步';
@@ -2735,6 +2713,7 @@
             cloudCache[studentId] = platform.students[studentId];
             if (cloudDbName) {
                 try {
+                    await saveStudentDocToCloud(studentId, platform.students[studentId]);
                     await persistTeacherPlatformToCloud();
                 } catch (e) {
                     alert('本機已清空，但雲端同步失敗：' + e.message);
@@ -3020,7 +2999,11 @@
 
             if (screenId === 'notebook-screen') renderNotebook();
             if (screenId === 'calendar-screen') renderCalendar();
-            if (screenId === 'teacher-dashboard-screen') renderTeacherDashboard();
+            if (screenId === 'teacher-dashboard-screen' && currentUser?.role === 'teacher') {
+                refreshTeacherDashboard();
+            } else if (screenId === 'teacher-dashboard-screen') {
+                renderTeacherDashboard();
+            }
             if (screenId === 'menu-screen' && currentUser?.role === 'teacher' && teacherLearningActive) {
                 renderCategorySelector();
                 saveState();
@@ -3760,7 +3743,7 @@
         // ----------------------------------------------------
         window.onload = async function() {
             rebuildRuntimeVocabulary();
-            cloudDbName = resolveCloudDb();
+            pinClassCloudDb();
             if (cloudDbName) await initCloud();
             updateCloudReadyHint();
             const saved = sessionStorage.getItem(SESSION_KEY);
