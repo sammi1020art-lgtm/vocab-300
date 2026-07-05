@@ -1402,7 +1402,7 @@
                     platform.students[sherryId] = createEmptyStudentData();
                 }
             }
-            return platform;
+            return redistributeNotebookByStudentId(platform);
         }
 
         function repairAndPersistPlatform() {
@@ -1460,13 +1460,80 @@
             return getLocalStudentData(studentId);
         }
 
+        function mergeStudentRecords(a, b) {
+            a = normalizeStudentData(a);
+            b = normalizeStudentData(b);
+            if (!studentHasLearningData(a)) return b;
+            if (!studentHasLearningData(b)) return a;
+
+            const mergeArraysByKey = (arrA, arrB, keyFn) => {
+                const map = new Map();
+                [...(arrA || []), ...(arrB || [])].forEach(item => map.set(keyFn(item), item));
+                return Array.from(map.values());
+            };
+
+            const notebook = mergeArraysByKey(a.notebook, b.notebook, e =>
+                `${e.date}|${e.time || ''}|${e.mode || ''}|${e.summary || ''}`
+            ).sort((x, y) => `${y.date} ${y.time || ''}`.localeCompare(`${x.date} ${x.time || ''}`)).slice(0, 30);
+
+            const quizScores = mergeArraysByKey(a.quizScores, b.quizScores, e =>
+                `${e.date}|${e.time || ''}|${e.modeKey || e.mode || ''}`
+            ).sort((x, y) => `${y.date} ${y.time || ''}`.localeCompare(`${x.date} ${x.time || ''}`)).slice(0, 30);
+
+            const progress = { ...(a.progress || {}) };
+            Object.entries(b.progress || {}).forEach(([k, v]) => {
+                progress[k] = Math.max(progress[k] || 0, v || 0);
+            });
+
+            const checkIns = [...new Set([...(a.checkIns || []), ...(b.checkIns || [])])].sort();
+            const dailyLogs = { ...(a.dailyLogs || {}) };
+            Object.entries(b.dailyLogs || {}).forEach(([day, log]) => {
+                if (!dailyLogs[day]) dailyLogs[day] = { ...log };
+                else {
+                    dailyLogs[day] = {
+                        quizzes: Math.max(dailyLogs[day].quizzes || 0, log.quizzes || 0),
+                        starsEarned: Math.max(dailyLogs[day].starsEarned || 0, log.starsEarned || 0),
+                        wordsLearned: Math.max(dailyLogs[day].wordsLearned || 0, log.wordsLearned || 0),
+                        totalScore: Math.max(dailyLogs[day].totalScore || 0, log.totalScore || 0)
+                    };
+                }
+            });
+
+            const stars = Math.max(a.stars || 0, b.stars || 0);
+            const updatedAt = [a.updatedAt, b.updatedAt].filter(Boolean).sort().pop() || new Date().toISOString();
+            return normalizeStudentData({ stars, progress, notebook, checkIns, dailyLogs, quizScores, updatedAt });
+        }
+
+        function redistributeNotebookByStudentId(platform) {
+            const accounts = platform.studentAccounts || [];
+            const validIds = new Set(accounts.map(a => a.id));
+            const moves = [];
+
+            validIds.forEach(id => {
+                const nb = platform.students[id]?.notebook || [];
+                const keep = [];
+                nb.forEach(entry => {
+                    if (entry.studentId && entry.studentId !== id && validIds.has(entry.studentId)) {
+                        moves.push({ targetId: entry.studentId, entry });
+                    } else {
+                        keep.push(entry);
+                    }
+                });
+                platform.students[id].notebook = keep;
+            });
+
+            moves.forEach(({ targetId, entry }) => {
+                platform.students[targetId].notebook = platform.students[targetId].notebook || [];
+                const key = `${entry.date}|${entry.time || ''}|${entry.summary || ''}`;
+                if (!platform.students[targetId].notebook.some(e => `${e.date}|${e.time || ''}|${e.summary || ''}` === key)) {
+                    platform.students[targetId].notebook.unshift(entry);
+                }
+            });
+            return platform;
+        }
+
         function mergeStudentData(local, remote) {
-            const hasData = d => d && (d.stars > 0 || Object.keys(d.progress || {}).length > 0 || (d.notebook || []).length > 0);
-            if (!remote || (!remote.updatedAt && !hasData(remote))) return normalizeStudentData(local);
-            if (!local || (!local.updatedAt && !hasData(local))) return normalizeStudentData(remote);
-            if (!remote.updatedAt) return normalizeStudentData(local);
-            if (!local.updatedAt) return normalizeStudentData(remote);
-            return normalizeStudentData(remote.updatedAt >= local.updatedAt ? remote : local);
+            return mergeStudentRecords(local, remote);
         }
 
         // ---------- 雲端同步（Tinkr，免 API 金鑰） ----------
@@ -2148,11 +2215,16 @@
                 dailyLogs: state.dailyLogs || {},
                 quizScores: state.quizScores || []
             };
-            cloudCache[currentUser.id] = normalizeStudentData({ ...payload, updatedAt: new Date().toISOString() });
-            saveLocalStudentData(currentUser.id, cloudCache[currentUser.id]);
+            const existing = getLocalStudentData(currentUser.id);
+            const merged = mergeStudentRecords(existing, payload);
+            merged.updatedAt = new Date().toISOString();
+            cloudCache[currentUser.id] = merged;
+            saveLocalStudentData(currentUser.id, merged);
             const platform = getPlatformData();
-            platform.students[currentUser.id] = cloudCache[currentUser.id];
+            platform.students[currentUser.id] = merged;
             savePlatformData(platform);
+            state.notebook = [...(merged.notebook || [])];
+            state.quizScores = [...(merged.quizScores || [])];
             clearTimeout(cloudSaveTimer);
             cloudSaveTimer = setTimeout(flushCloudWrite, CLOUD_WRITE_INTERVAL);
         }
@@ -2387,6 +2459,11 @@
                 const todayLog = sd.dailyLogs?.[today];
                 const streak = calcStreak(sd.checkIns || []);
                 const lastEntry = (sd.notebook || [])[0];
+                const recentText = lastEntry
+                    ? `最近：${lastEntry.summary}`
+                    : (sd.stars > 0
+                        ? `已累積 ⭐ ${sd.stars}，持續學習中`
+                        : '');
                 return `
                 <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-5 space-y-3 cursor-pointer hover:border-indigo-500/50 transition" onclick="showTeacherDetail('${sid}')">
                     <div class="flex items-center justify-between">
@@ -2398,7 +2475,7 @@
                         <div class="bg-slate-900/50 rounded-xl p-2 text-center"><span class="block text-xs text-slate-500">連續打卡</span><span class="font-bold text-rose-400">🔥 ${streak} 天</span></div>
                         <div class="bg-slate-900/50 rounded-xl p-2 text-center"><span class="block text-xs text-slate-500">今日測驗</span><span class="font-bold text-indigo-400">${todayLog ? todayLog.quizzes + ' 次' : '尚未學習'}</span></div>
                     </div>
-                    ${lastEntry ? `<p class="text-xs text-slate-400 truncate">最近：${lastEntry.summary}</p>` : '<p class="text-xs text-slate-500">尚無學習紀錄</p>'}
+                    ${recentText ? `<p class="text-xs text-slate-400 truncate">${recentText}</p>` : '<p class="text-xs text-slate-500">尚無學習紀錄</p>'}
                     <button class="w-full text-sm bg-indigo-600/80 hover:bg-indigo-500 text-white py-2 rounded-xl font-bold transition btn-bounce">查看詳細進度 →</button>
                 </div>`;
             }).join('');
