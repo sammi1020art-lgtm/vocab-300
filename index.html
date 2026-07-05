@@ -1188,6 +1188,7 @@
         const SESSION_KEY = 'vocab300_session';
         const CLOUD_DB_KEY = 'vocab300_class_db';
         const PLATFORM_DOC_ID_KEY = 'vocab300_platform_doc_id';
+        const STUDENT_DOC_ID_PREFIX = 'vocab300_student_doc_';
         const MODE_NAMES = { flashcards: '單字學習卡', matching: '去圖示連連看', spelling: '拼字大挑戰', listening: '聽力大考驗', speaking: '口說發音特訓' };
         const TINKR_BASE = 'https://tinkr.tech/sdb/';
         const CLOUD_WRITE_INTERVAL = 11000; // Tinkr 寫入限速約 10 秒
@@ -1594,8 +1595,16 @@
                 if (!res.ok) return null;
                 const docs = await res.json();
                 const doc = findLatestPlatformDoc(docs);
-                if (!doc) return { dbName, doc: null, score: 0 };
-                return { dbName, doc, score: scorePlatformDoc(doc) };
+                let platform = doc?.students
+                    ? ensurePlatformStructure({ students: doc.students, customPacks: doc.customPacks || [] })
+                    : createEmptyPlatform();
+                platform = mergeStudentDocsIntoPlatform(platform, docs);
+                let score = (platform.customPacks || []).length * 15;
+                Object.values(platform.students || {}).forEach(sd => {
+                    if (studentHasLearningData(sd)) score += 20;
+                    if (sd.notebook?.length) score += sd.notebook.length * 5;
+                });
+                return { dbName, doc, score };
             } catch {
                 return null;
             }
@@ -1751,24 +1760,138 @@
             return trimmed;
         }
 
-        async function fetchPlatformFromCloud() {
-            if (!cloudDbName) return null;
+        function getStudentDocIdKey(studentId) {
+            return STUDENT_DOC_ID_PREFIX + studentId;
+        }
+
+        function findLatestStudentDoc(docs, studentId) {
+            if (!Array.isArray(docs)) return null;
+            const matches = docs.filter(d => d && d.type === 'student' && d.studentId === studentId);
+            if (!matches.length) return null;
+            return matches.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))[0];
+        }
+
+        function mergeStudentDocsIntoPlatform(platform, docs) {
+            platform = repairPlatformStudentRecords(ensurePlatformStructure(platform));
+            (docs || []).filter(d => d && d.type === 'student' && d.studentId).forEach(doc => {
+                const sid = doc.studentId;
+                platform.students[sid] = mergeStudentRecords(
+                    normalizeStudentData(platform.students[sid]),
+                    normalizeStudentData(doc)
+                );
+            });
+            return platform;
+        }
+
+        async function fetchAllCloudDocs() {
+            if (!cloudDbName) return [];
             const res = await fetch(TINKR_BASE + cloudDbName, { cache: 'no-store' });
             if (!res.ok) throw new Error('雲端讀取失敗 (' + res.status + ')');
             const docs = await res.json();
             if (!Array.isArray(docs)) throw new Error('雲端格式錯誤');
+            return docs;
+        }
 
+        async function resolveStudentDocIdFromCloud(studentId) {
+            const cached = localStorage.getItem(getStudentDocIdKey(studentId));
+            if (cached) return cached;
+            const docs = await fetchAllCloudDocs();
+            const doc = findLatestStudentDoc(docs, studentId);
+            if (doc?.id) {
+                localStorage.setItem(getStudentDocIdKey(studentId), doc.id);
+                return doc.id;
+            }
+            return null;
+        }
+
+        async function saveStudentDocToCloud(studentId, data) {
+            if (!cloudDbName) return;
+            const now = Date.now();
+            if (now - lastCloudWrite < CLOUD_WRITE_INTERVAL) {
+                await new Promise(r => setTimeout(r, CLOUD_WRITE_INTERVAL - (now - lastCloudWrite)));
+            }
+            const payload = {
+                type: 'student',
+                studentId,
+                stars: data.stars || 0,
+                progress: data.progress || {},
+                notebook: data.notebook || [],
+                checkIns: data.checkIns || [],
+                dailyLogs: data.dailyLogs || {},
+                quizScores: data.quizScores || [],
+                updatedAt: new Date().toISOString()
+            };
+            const trimmed = trimStudentDataForCloud(payload);
+            trimmed.type = 'student';
+            trimmed.studentId = studentId;
+            trimmed.updatedAt = payload.updatedAt;
+
+            let docId = localStorage.getItem(getStudentDocIdKey(studentId));
+            if (!docId) docId = await resolveStudentDocIdFromCloud(studentId);
+            if (docId) {
+                const res = await fetch(`${TINKR_BASE}${cloudDbName}/${docId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(trimmed)
+                });
+                if (res.ok) {
+                    lastCloudWrite = Date.now();
+                    lastCloudSync = new Date();
+                    return;
+                }
+                if (res.status === 404) localStorage.removeItem(getStudentDocIdKey(studentId));
+            }
+            const res = await fetch(TINKR_BASE + cloudDbName, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(trimmed)
+            });
+            if (!res.ok) throw new Error('學生雲端寫入失敗 (' + res.status + ')');
+            const doc = await res.json();
+            if (doc.id) localStorage.setItem(getStudentDocIdKey(studentId), doc.id);
+            lastCloudWrite = Date.now();
+            lastCloudSync = new Date();
+        }
+
+        async function hydrateStudentsFromCloud(ids) {
+            if (!cloudReady || !cloudDbName) {
+                const out = {};
+                ids.forEach(sid => { out[sid] = getStudentData(sid); });
+                return out;
+            }
+            try {
+                const remote = await fetchPlatformFromCloud();
+                const out = {};
+                ids.forEach(sid => {
+                    const local = getLocalStudentData(sid);
+                    const remoteSd = normalizeStudentData(remote.students?.[sid]);
+                    out[sid] = mergeStudentRecords(remoteSd, local);
+                    cloudCache[sid] = out[sid];
+                });
+                return out;
+            } catch (e) {
+                console.error('讀取雲端學生資料失敗:', e);
+                const out = {};
+                ids.forEach(sid => { out[sid] = getStudentData(sid); });
+                return out;
+            }
+        }
+
+        async function fetchPlatformFromCloud() {
+            const docs = await fetchAllCloudDocs();
             let platformDoc = findLatestPlatformDoc(docs);
             if (platformDoc?.id) localStorage.setItem(PLATFORM_DOC_ID_KEY, platformDoc.id);
 
-            if (!platformDoc?.students) return createEmptyPlatform();
+            if (!platformDoc?.students) {
+                return mergeStudentDocsIntoPlatform(createEmptyPlatform(), docs);
+            }
 
-            const platform = repairPlatformStudentRecords(ensurePlatformStructure({
+            const platform = mergeStudentDocsIntoPlatform(ensurePlatformStructure({
                 students: platformDoc.students || {},
                 studentAccounts: platformDoc.studentAccounts,
                 customPacks: platformDoc.customPacks,
                 updatedAt: platformDoc.updatedAt || ''
-            }));
+            }), docs);
             return platform;
         }
 
@@ -1993,6 +2116,8 @@
             try {
                 updateSyncStatus('syncing');
                 const platform = getPlatformData();
+                const sd = normalizeStudentData(platform.students[currentUser.id]);
+                await saveStudentDocToCloud(currentUser.id, sd);
                 await savePlatformToCloud(platform);
                 updateSyncStatus('synced');
             } catch (e) {
@@ -2044,7 +2169,8 @@
             teacherPollTimer = setInterval(async () => {
                 if (currentUser?.role !== 'teacher') return;
                 await prefetchAllStudents();
-                renderTeacherDashboard();
+                const studentsMap = await hydrateStudentsFromCloud(getStudentIds());
+                renderTeacherDashboard(studentsMap);
                 if (openDetailStudentId) showTeacherDetail(openDetailStudentId);
             }, 15000);
         }
@@ -2054,7 +2180,8 @@
             try {
                 await initCloud();
                 await prefetchAllStudents();
-                renderTeacherDashboard();
+                const studentsMap = await hydrateStudentsFromCloud(getStudentIds());
+                renderTeacherDashboard(studentsMap);
             } finally {
                 showCloudLoading(false);
             }
@@ -2197,8 +2324,9 @@
                     renderCategorySelector();
                     saveState();
                     await prefetchAllStudents();
+                    const studentsMap = await hydrateStudentsFromCloud(getStudentIds());
                     startTeacherCloudWatch();
-                    renderTeacherDashboard();
+                    renderTeacherDashboard(studentsMap);
                     showScreen('teacher-dashboard-screen', true);
                 } else {
                     document.getElementById('student-nav').classList.remove('hidden');
@@ -2254,7 +2382,7 @@
         }
 
         function persistStudentState() {
-            if (!canPersistLearning()) return;
+            if (!canPersistLearning()) return Promise.resolve();
             const payload = {
                 stars: state.stars,
                 progress: state.progress,
@@ -2273,13 +2401,25 @@
             savePlatformData(platform);
             state.notebook = [...(merged.notebook || [])];
             state.quizScores = [...(merged.quizScores || [])];
-            const hadNewNotebook = (merged.notebook || []).length > (existing.notebook || []).length;
-            clearTimeout(cloudSaveTimer);
-            if (hadNewNotebook) {
-                flushCloudWriteNow().catch(e => console.error('即時雲端同步失敗:', e));
-            } else {
-                cloudSaveTimer = setTimeout(flushCloudWrite, CLOUD_WRITE_INTERVAL);
+
+            if (!cloudDbName) {
+                updateSyncStatus('offline');
+                return Promise.resolve();
             }
+            updateSyncStatus('syncing');
+            return (async () => {
+                try {
+                    await saveStudentDocToCloud(currentUser.id, merged);
+                    cloudReady = true;
+                    updateSyncStatus('synced');
+                    lastCloudSync = new Date();
+                } catch (e) {
+                    console.error('學習紀錄雲端同步失敗:', e);
+                    updateSyncStatus('error');
+                }
+                clearTimeout(cloudSaveTimer);
+                cloudSaveTimer = setTimeout(flushCloudWrite, CLOUD_WRITE_INTERVAL);
+            })();
         }
 
         function recordCheckIn() {
@@ -2487,13 +2627,13 @@
             alert('已新增學生「' + name + '」');
         }
 
-        function renderTeacherDashboard() {
+        function renderTeacherDashboard(studentsMap) {
             renderTeacherAccountsPanel();
             renderCustomPacksList();
             const container = document.getElementById('teacher-student-cards');
             const ids = getStudentIds();
-            const students = {};
-            ids.forEach(sid => { students[sid] = getStudentData(sid); });
+            const students = studentsMap || {};
+            if (!studentsMap) ids.forEach(sid => { students[sid] = getStudentData(sid); });
             const updatedText = lastCloudSync
                 ? `最後同步：${lastCloudSync.toLocaleString('zh-TW')}${cloudReady ? '（每 15 秒自動更新）' : ''}`
                 : '等待同步';
@@ -2536,7 +2676,7 @@
 
         function showTeacherDetail(sid) {
             openDetailStudentId = sid;
-            const sd = getStudentData(sid);
+            const sd = cloudCache[sid] || getStudentData(sid);
             const panel = document.getElementById('teacher-detail-panel');
             panel.classList.remove('hidden');
             document.getElementById('detail-student-name').innerText = `🧑‍🎓 ${getStudentDisplayName(sid)}`;
