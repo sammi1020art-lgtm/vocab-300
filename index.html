@@ -61,6 +61,20 @@
             to { opacity: 1; transform: translateY(0); }
         }
         .animate-fade-in { animation: fade-in 0.4s ease-out; }
+        #onboarding-overlay { z-index: 80; }
+        #onboarding-spotlight {
+            position: fixed;
+            border-radius: 16px;
+            border: 2px solid rgba(129, 140, 248, 0.95);
+            box-shadow: 0 0 0 9999px rgba(2, 6, 23, 0.84);
+            transition: top 0.35s ease, left 0.35s ease, width 0.35s ease, height 0.35s ease;
+            pointer-events: none;
+            z-index: 81;
+        }
+        #onboarding-card {
+            z-index: 82;
+            max-width: min(380px, calc(100vw - 32px));
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-950 min-h-screen text-slate-100 pb-12">
@@ -143,6 +157,28 @@
         <p class="text-slate-200 font-bold">正在同步雲端資料...</p>
     </div>
 
+    <!-- 功能介紹導覽 -->
+    <div id="onboarding-overlay" class="fixed inset-0 hidden">
+        <div id="onboarding-spotlight" class="hidden"></div>
+        <div id="onboarding-card" class="fixed bg-slate-900 border border-indigo-500/40 rounded-3xl p-5 md:p-6 shadow-2xl space-y-4 animate-fade-in">
+            <div class="flex items-start justify-between gap-3">
+                <div class="space-y-1 flex-1 min-w-0">
+                    <p id="onboarding-step-label" class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">步驟 1 / 6</p>
+                    <h3 id="onboarding-title" class="text-lg font-black text-slate-100 leading-snug">歡迎</h3>
+                </div>
+                <button type="button" onclick="skipOnboarding()" class="shrink-0 text-slate-500 hover:text-slate-300 text-sm font-bold transition" title="關閉導覽">✕</button>
+            </div>
+            <p id="onboarding-body" class="text-sm text-slate-300 leading-relaxed"></p>
+            <div class="flex items-center justify-between gap-2 pt-1">
+                <button type="button" id="onboarding-skip-btn" onclick="skipOnboarding()" class="text-xs text-slate-500 hover:text-slate-300 font-bold transition">略過</button>
+                <div class="flex gap-2">
+                    <button type="button" id="onboarding-prev-btn" onclick="onboardingPrev()" class="hidden text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 px-4 py-2 rounded-xl font-bold transition btn-bounce">上一步</button>
+                    <button type="button" id="onboarding-next-btn" onclick="onboardingNext()" class="text-xs bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white px-4 py-2 rounded-xl font-bold transition btn-bounce">下一步</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- 主應用（登入後顯示） -->
     <div id="app-wrapper" class="hidden">
 
@@ -156,6 +192,7 @@
             
             <div class="flex items-center space-x-2 md:space-x-4">
                 <span id="sync-status" class="hidden text-[10px] md:text-xs px-2 py-1 rounded-full font-bold border"></span>
+                <button id="tour-replay-btn" onclick="startOnboarding(true)" class="hidden text-xs md:text-sm bg-indigo-900/60 hover:bg-indigo-800/60 border border-indigo-700/50 text-indigo-300 px-2 md:px-3 py-1.5 rounded-full font-bold transition btn-bounce" title="重新觀看使用導覽">📖 導覽</button>
                 <span id="user-badge" class="hidden text-xs bg-indigo-950/80 border border-indigo-800 text-indigo-300 px-2.5 py-1 rounded-full font-bold truncate max-w-[100px] md:max-w-none"></span>
                 <div id="student-nav" class="hidden flex items-center space-x-1 md:space-x-2">
                     <button onclick="showScreen('notebook-screen')" class="text-xs md:text-sm bg-slate-800 hover:bg-slate-700 border border-slate-700 px-2 md:px-3 py-1.5 rounded-full font-bold transition btn-bounce">📓 記事本</button>
@@ -189,7 +226,7 @@
                 🧑‍🏫 <b>老師預覽模式</b>：可完整體驗學生學習內容與操作，不會寫入學生學習紀錄
             </div>
             <!-- 歡迎看板 -->
-            <div class="bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-2xl border border-indigo-500/20 relative overflow-hidden">
+            <div id="menu-welcome-banner" class="bg-gradient-to-r from-indigo-900 via-purple-900 to-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-2xl border border-indigo-500/20 relative overflow-hidden">
                 <div class="relative z-10 max-w-2xl">
                     <span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest">301 個生活必備英文單字全收錄</span>
                     <h1 class="text-3xl md:text-4xl font-extrabold mb-3 mt-2">英文全能發音大冒險！🎙️</h1>
@@ -272,7 +309,7 @@
             </div>
 
             <!-- 全能 300 單字進度牆統計 -->
-            <div class="bg-slate-800/20 border border-slate-700/30 p-6 rounded-3xl space-y-4">
+            <div id="overall-progress-panel" class="bg-slate-800/20 border border-slate-700/30 p-6 rounded-3xl space-y-4">
                 <div class="flex items-center justify-between">
                     <h2 class="text-lg font-bold text-indigo-300 flex items-center">
                         <span class="mr-2">📊</span> 全能單字特工解鎖進度
@@ -548,14 +585,14 @@
         <div id="teacher-dashboard-screen" class="screen hidden space-y-6">
             <div class="flex items-center justify-between flex-wrap gap-3">
                 <h2 class="text-2xl font-black text-slate-100 flex items-center"><span class="mr-2">📊</span> 學生學習管理後台</h2>
-                <div class="flex items-center gap-2">
+                <div id="teacher-dashboard-toolbar" class="flex items-center gap-2">
                     <button onclick="showCurrentClassShareLink()" class="text-xs bg-indigo-900/60 hover:bg-indigo-800/60 border border-indigo-700/50 text-indigo-300 px-3 py-1.5 rounded-full font-bold transition btn-bounce">🔗 班級連結</button>
                     <button onclick="refreshTeacherDashboard()" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded-full font-bold transition btn-bounce">🔄 重新整理</button>
                     <span class="text-xs bg-emerald-950/60 text-emerald-300 border border-emerald-800 px-3 py-1 rounded-full" id="dashboard-updated">資料即時更新</span>
                 </div>
             </div>
             <!-- 學生帳號管理 -->
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+            <div id="teacher-accounts-panel" class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
                 <h3 class="text-lg font-bold text-slate-100 flex items-center"><span class="mr-2">👥</span> 學生帳號管理</h3>
                 <p class="text-xs text-slate-400">學生以「英文姓名」登入（大小寫不拘），您可新增學生或修改姓名、密碼。</p>
                 <div id="teacher-accounts-list" class="space-y-3"></div>
@@ -572,7 +609,7 @@
                 </div>
             </div>
             <!-- 上傳自訂單字 Excel -->
-            <div class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
+            <div id="teacher-excel-panel" class="bg-slate-800/40 border border-slate-700/50 rounded-3xl p-6 space-y-4">
                 <h3 class="text-lg font-bold text-slate-100 flex items-center"><span class="mr-2">📤</span> 上傳自訂單字主題（Excel）</h3>
                 <p class="text-xs text-slate-400 leading-relaxed">
                     請準備 Excel（.xlsx / .xls）或 CSV：<b>第一欄英文單字、第二欄中文翻譯</b>（第一列可寫標題會自動略過）。<br>
@@ -1186,6 +1223,7 @@
         const TEACHER_ACCOUNT = { id: 'Ab100000', password: 'Ab100000', role: 'teacher', name: '老師' };
         const PLATFORM_KEY = 'vocab300_platform';
         const SESSION_KEY = 'vocab300_session';
+        const ONBOARDING_KEY_PREFIX = 'vocab300_onboarding_done_';
         const CLOUD_DB_KEY = 'vocab300_class_db';
         const PLATFORM_DOC_ID_KEY = 'vocab300_platform_doc_id';
         const STUDENT_DOC_ID_PREFIX = 'vocab300_student_doc_';
@@ -1205,6 +1243,9 @@
         let lastCloudWrite = 0;
         let openDetailStudentId = null;
         let teacherPollTimer = null;
+        let onboardingSteps = [];
+        let onboardingIndex = 0;
+        let onboardingActive = false;
         let cloudDbName = '';
         let teacherLearningActive = false;
 
@@ -1397,17 +1438,6 @@
                 }
             });
 
-            const jimId = '1021029';
-            const sherryId = '1031217';
-            const jim = platform.students[jimId];
-            const sherry = platform.students[sherryId];
-            if (jim && sherry) {
-                const jimSig = studentDataSignature(jim);
-                const sherrySig = studentDataSignature(sherry);
-                if (jimSig && jimSig === sherrySig) {
-                    platform.students[sherryId] = createEmptyStudentData();
-                }
-            }
             return redistributeNotebookByStudentId(platform);
         }
 
@@ -1727,15 +1757,46 @@
         }
 
         function mergeStudentDocsIntoPlatform(platform, docs) {
-            platform = repairPlatformStudentRecords(ensurePlatformStructure(platform));
-            (docs || []).filter(d => d && d.type === 'student' && d.studentId).forEach(doc => {
-                const sid = doc.studentId;
+            platform = ensurePlatformStructure(platform);
+            const studentIds = new Set(
+                (docs || []).filter(d => d && d.type === 'student' && d.studentId).map(d => d.studentId)
+            );
+            studentIds.forEach(sid => {
+                const doc = findLatestStudentDoc(docs, sid);
+                if (!doc) return;
                 platform.students[sid] = mergeStudentRecords(
                     normalizeStudentData(platform.students[sid]),
                     normalizeStudentData(doc)
                 );
             });
-            return platform;
+            return redistributeNotebookByStudentId(platform);
+        }
+
+        async function buildPlatformSnapshotForCloud(localPlatform) {
+            localPlatform = ensurePlatformStructure(localPlatform);
+            let fromDocs = createEmptyPlatform();
+            try {
+                const docs = await fetchAllCloudDocs();
+                fromDocs = mergeStudentDocsIntoPlatform(createEmptyPlatform(), docs);
+            } catch (e) {
+                console.warn('讀取雲端學生文件失敗:', e);
+            }
+            const snapshot = {
+                students: {},
+                studentAccounts: localPlatform.studentAccounts,
+                customPacks: localPlatform.customPacks,
+                updatedAt: localPlatform.updatedAt
+            };
+            getStudentIds().forEach(sid => {
+                const cloudSd = normalizeStudentData(fromDocs.students[sid]);
+                const localSd = normalizeStudentData(localPlatform.students[sid]);
+                if (currentUser?.role === 'student' && sid !== currentUser.id) {
+                    snapshot.students[sid] = cloudSd;
+                } else {
+                    snapshot.students[sid] = mergeStudentRecords(cloudSd, localSd);
+                }
+            });
+            return repairPlatformStudentRecords(snapshot);
         }
 
         async function fetchAllCloudDocs() {
@@ -1833,9 +1894,8 @@
                 const remote = await fetchPlatformFromCloud();
                 const out = {};
                 ids.forEach(sid => {
-                    const local = getLocalStudentData(sid);
                     const remoteSd = normalizeStudentData(remote.students?.[sid]);
-                    out[sid] = mergeStudentRecords(remoteSd, local);
+                    out[sid] = remoteSd;
                     cloudCache[sid] = out[sid];
                 });
                 return out;
@@ -1867,11 +1927,13 @@
 
         async function savePlatformToCloud(platform) {
             if (!cloudDbName) return;
+            if (currentUser?.role === 'student') return;
             const now = Date.now();
             if (now - lastCloudWrite < CLOUD_WRITE_INTERVAL) {
                 const wait = CLOUD_WRITE_INTERVAL - (now - lastCloudWrite);
                 await new Promise(r => setTimeout(r, wait));
             }
+            platform = await buildPlatformSnapshotForCloud(platform);
             const payload = trimPlatformForCloud(platform);
             payload.updatedAt = new Date().toISOString();
 
@@ -2004,7 +2066,7 @@
                 lastCloudSync = new Date();
                 updateSyncStatus('synced');
                 updateCloudReadyHint();
-                if (wasRepaired) {
+                if (wasRepaired && currentUser?.role === 'teacher') {
                     try { await savePlatformToCloud(merged); } catch (e) { console.error('修復資料同步失敗:', e); }
                 }
                 return true;
@@ -2049,12 +2111,12 @@
                 updatedAt: useRemote ? remote.updatedAt : local.updatedAt
             };
             mergedAccounts.forEach(acc => {
-                merged.students[acc.id] = mergeStudentData(
+                merged.students[acc.id] = mergeStudentRecords(
                     normalizeStudentData(local.students?.[acc.id]),
                     normalizeStudentData(remote.students?.[acc.id])
                 );
             });
-            return repairPlatformStudentRecords(merged);
+            return redistributeNotebookByStudentId(merged);
         }
 
         async function ensureClassCloud(forTeacher) {
@@ -2088,10 +2150,8 @@
             if (!cloudReady || !cloudDbName) { updateSyncStatus('offline'); return; }
             try {
                 updateSyncStatus('syncing');
-                const platform = getPlatformData();
-                const sd = normalizeStudentData(platform.students[currentUser.id]);
+                const sd = normalizeStudentData(getStudentData(currentUser.id));
                 await saveStudentDocToCloud(currentUser.id, sd);
-                await savePlatformToCloud(platform);
                 updateSyncStatus('synced');
             } catch (e) {
                 console.error('雲端儲存失敗:', e);
@@ -2120,7 +2180,8 @@
                     getStudentIds().forEach(sid => { cloudCache[sid] = merged.students[sid]; });
                     const remoteUpdatedAt = remote?.updatedAt || '';
                     const repaired = JSON.stringify(local.students || {}) !== JSON.stringify(merged.students || {});
-                    if (merged.updatedAt > remoteUpdatedAt || repaired) {
+                    const teacherView = currentUser?.role === 'teacher';
+                    if (!teacherView && (merged.updatedAt > remoteUpdatedAt || repaired)) {
                         await savePlatformToCloud(merged);
                     }
                     lastCloudSync = new Date();
@@ -2344,18 +2405,24 @@
             const oldStars = parseInt(localStorage.getItem('all_in_one_stars') || '0');
             const oldProgress = localStorage.getItem('all_in_one_progress');
             if (oldStars > 0 || oldProgress) {
-                if (currentUser.id === '1021029' && !studentHasLearningData(sd)) {
+                const defaultIds = ['1021029', '1031217'];
+                if (defaultIds.includes(currentUser.id) && !studentHasLearningData(sd)) {
                     state.stars = oldStars;
                     if (oldProgress) try { state.progress = JSON.parse(oldProgress); } catch {}
                     persistStudentState();
                 }
                 clearLegacyGlobalProgress();
             }
-            if (cloudDbName && studentHasLearningData(sd)) {
-                const uploaded = await syncStudentDocToCloudNow(currentUser.id, getStudentData(currentUser.id));
-                updateSyncStatus(uploaded ? 'synced' : 'error');
+            if (cloudDbName) {
+                const toUpload = getStudentData(currentUser.id);
+                if (studentHasLearningData(toUpload)) {
+                    const uploaded = await syncStudentDocToCloudNow(currentUser.id, toUpload);
+                    updateSyncStatus(uploaded ? 'synced' : 'error');
+                } else {
+                    updateSyncStatus(cloudReady ? 'synced' : 'offline');
+                }
             } else {
-                updateSyncStatus(cloudDbName ? (cloudReady ? 'synced' : 'offline') : 'offline');
+                updateSyncStatus('offline');
             }
         }
 
